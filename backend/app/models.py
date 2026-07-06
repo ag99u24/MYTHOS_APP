@@ -1,15 +1,18 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from typing import Optional
 from uuid import uuid4
 
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
 
 
 class TimestampMixin:
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(
-        db.DateTime,
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
@@ -18,22 +21,22 @@ class TimestampMixin:
 class User(db.Model, TimestampMixin):
     __tablename__ = "users"
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(30), nullable=False, default="client")
-    specialty = db.Column(db.String(120))
-    goal = db.Column(db.String(160))
-    avatar_url = db.Column(db.String(500))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(30), nullable=False, default="client")
+    specialty: Mapped[Optional[str]] = mapped_column(String(120))
+    goal: Mapped[Optional[str]] = mapped_column(String(160))
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(500))
 
-    clients = db.relationship(
+    clients: Mapped[list["ClientAssignment"]] = relationship(
         "ClientAssignment",
         foreign_keys="ClientAssignment.professional_id",
         back_populates="professional",
         cascade="all, delete-orphan",
     )
-    professionals = db.relationship(
+    professionals: Mapped[list["ClientAssignment"]] = relationship(
         "ClientAssignment",
         foreign_keys="ClientAssignment.client_id",
         back_populates="client",
@@ -61,31 +64,31 @@ class User(db.Model, TimestampMixin):
 class ClientAssignment(db.Model, TimestampMixin):
     __tablename__ = "client_assignments"
 
-    id = db.Column(db.Integer, primary_key=True)
-    professional_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    client_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    status = db.Column(db.String(30), nullable=False, default="active")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    professional_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
 
-    professional = db.relationship("User", foreign_keys=[professional_id], back_populates="clients")
-    client = db.relationship("User", foreign_keys=[client_id], back_populates="professionals")
+    professional: Mapped["User"] = relationship("User", foreign_keys=[professional_id], back_populates="clients")
+    client: Mapped["User"] = relationship("User", foreign_keys=[client_id], back_populates="professionals")
 
 
 class Plan(db.Model, TimestampMixin):
     __tablename__ = "plans"
 
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(160), nullable=False)
-    description = db.Column(db.Text)
-    category = db.Column(db.String(40), nullable=False)
-    status = db.Column(db.String(30), nullable=False, default="draft")
-    start_date = db.Column(db.Date)
-    end_date = db.Column(db.Date)
-    professional_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    client_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
+    start_date: Mapped[Optional[date]] = mapped_column(Date)
+    end_date: Mapped[Optional[date]] = mapped_column(Date)
+    professional_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 
-    professional = db.relationship("User", foreign_keys=[professional_id])
-    client = db.relationship("User", foreign_keys=[client_id])
-    items = db.relationship("PlanItem", back_populates="plan", cascade="all, delete-orphan")
+    professional: Mapped["User"] = relationship("User", foreign_keys=[professional_id])
+    client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
+    items: Mapped[list["PlanItem"]] = relationship("PlanItem", back_populates="plan", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -105,14 +108,14 @@ class Plan(db.Model, TimestampMixin):
 class PlanItem(db.Model, TimestampMixin):
     __tablename__ = "plan_items"
 
-    id = db.Column(db.Integer, primary_key=True)
-    plan_id = db.Column(db.Integer, db.ForeignKey("plans.id"), nullable=False)
-    day = db.Column(db.String(40), nullable=False)
-    title = db.Column(db.String(160), nullable=False)
-    details = db.Column(db.Text)
-    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("plans.id"), nullable=False)
+    day: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    details: Mapped[Optional[str]] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    plan = db.relationship("Plan", back_populates="items")
+    plan: Mapped["Plan"] = relationship("Plan", back_populates="items")
 
     def to_dict(self):
         return {
@@ -127,15 +130,15 @@ class PlanItem(db.Model, TimestampMixin):
 class ProgressEntry(db.Model, TimestampMixin):
     __tablename__ = "progress_entries"
 
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    weight = db.Column(db.Float)
-    body_fat = db.Column(db.Float)
-    mood = db.Column(db.String(40))
-    notes = db.Column(db.Text)
-    photo_url = db.Column(db.String(500))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    weight: Mapped[Optional[float]] = mapped_column(Float)
+    body_fat: Mapped[Optional[float]] = mapped_column(Float)
+    mood: Mapped[Optional[str]] = mapped_column(String(40))
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    photo_url: Mapped[Optional[str]] = mapped_column(String(500))
 
-    client = db.relationship("User", foreign_keys=[client_id])
+    client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
 
     def to_dict(self):
         return {
@@ -153,9 +156,9 @@ class ProgressEntry(db.Model, TimestampMixin):
 class PasswordResetToken(db.Model, TimestampMixin):
     __tablename__ = "password_reset_tokens"
 
-    id = db.Column(db.Integer, primary_key=True)
-    token = db.Column(db.String(80), unique=True, nullable=False, default=lambda: uuid4().hex)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    used_at = db.Column(db.DateTime)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, default=lambda: uuid4().hex)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
-    user = db.relationship("User")
+    user: Mapped["User"] = relationship("User")
