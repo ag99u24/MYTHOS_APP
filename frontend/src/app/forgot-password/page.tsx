@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AuthCard } from "@/components/AuthCard";
-import { FormField } from "@/components/FormField";
+import { ForgotPasswordForm } from "./ForgotPasswordForm";
 
 export default function ForgotPasswordPage() {
   return (
@@ -16,12 +16,7 @@ export default function ForgotPasswordPage() {
         </>
       }
     >
-      <form className="grid gap-4">
-        <FormField label="Email" name="email" type="email" placeholder="tu@email.com" />
-        <button type="button" className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white hover:bg-[#2c372f]">
-          Enviar enlace
-        </button>
-      </form>
+      <ForgotPasswordForm />
     </AuthCard>
   );
 }

@@ -27,4 +27,11 @@ def create_app(config_class=Config):
     def health_check():
         return jsonify({"status": "ok", "service": "mythos-api"})
 
+    @app.cli.command("init-db")
+    def init_db():
+        import app.models  # noqa: F401
+
+        db.create_all()
+        print("Database tables created.")
+
     return app
