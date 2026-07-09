@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { SessionPanel } from "./SessionPanel";
 
 const navigation = [
   { href: "/dashboard", label: "Panel", icon: "P" },
@@ -40,6 +41,7 @@ export function AppShell({ title, description, action, children }: AppShellProps
               </Link>
             ))}
           </nav>
+          <SessionPanel />
         </aside>
 
         <section className="px-5 py-6 sm:px-8 lg:px-10">

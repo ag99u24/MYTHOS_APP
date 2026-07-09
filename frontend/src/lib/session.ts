@@ -18,11 +18,29 @@ const USER_KEY = "mythos_user";
 
 export function saveSession(session: AuthResponse) {
   window.localStorage.setItem(TOKEN_KEY, session.access_token);
-  window.localStorage.setItem(USER_KEY, JSON.stringify(session.user));
+  saveUser(session.user);
+}
+
+export function saveUser(user: AuthUser) {
+  window.localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 export function getToken() {
   return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function getStoredUser() {
+  const storedUser = window.localStorage.getItem(USER_KEY);
+
+  if (!storedUser) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(storedUser) as AuthUser;
+  } catch {
+    return null;
+  }
 }
 
 export function clearSession() {
