@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
-from app.models import Plan, PlanItem
+from app.models import Plan, PlanItem, User
 
 plans_bp = Blueprint("plans", __name__)
 
@@ -48,6 +48,10 @@ def create_plan():
     if missing_fields:
         return jsonify({"message": "Missing required fields", "fields": missing_fields}), 400
 
+    client = db.session.get(User, int(data["client_id"]))
+    if not client or client.role != "client":
+        return jsonify({"message": "Client not found"}), 404
+
     plan = Plan(
         title=data["title"],
         description=data.get("description"),
@@ -56,7 +60,7 @@ def create_plan():
         start_date=parse_date(data.get("start_date")),
         end_date=parse_date(data.get("end_date")),
         professional_id=user_id,
-        client_id=data["client_id"],
+        client_id=client.id,
     )
 
     for index, item in enumerate(data.get("items", [])):
