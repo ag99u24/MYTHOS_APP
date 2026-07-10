@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { AuthCard } from "@/components/AuthCard";
 import { RegisterForm } from "./RegisterForm";
 
@@ -16,7 +17,9 @@ export default function RegisterPage() {
         </>
       }
     >
-      <RegisterForm />
+      <Suspense fallback={<p className="text-sm text-[#5d6959]">Preparando formulario...</p>}>
+        <RegisterForm />
+      </Suspense>
     </AuthCard>
   );
 }

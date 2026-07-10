@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { FormField } from "@/components/FormField";
 import { FormMessage } from "@/components/FormMessage";
@@ -9,6 +9,8 @@ import { AuthResponse, saveSession } from "@/lib/session";
 
 export function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") || "/dashboard";
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -31,7 +33,7 @@ export function RegisterForm() {
       });
 
       saveSession(session);
-      router.push("/dashboard");
+      router.push(nextPath);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo crear la cuenta.");
     } finally {
