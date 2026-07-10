@@ -4,9 +4,11 @@ from flask_cors import CORS
 from app.config import Config
 from app.extensions import db, jwt, migrate
 from app.routes.auth import auth_bp
+from app.routes.diet import diet_bp
 from app.routes.plans import plans_bp
 from app.routes.progress import progress_bp
 from app.routes.users import users_bp
+from app.routes.workouts import workouts_bp
 
 
 def create_app(config_class=Config):
@@ -22,6 +24,8 @@ def create_app(config_class=Config):
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(plans_bp, url_prefix="/api/plans")
     app.register_blueprint(progress_bp, url_prefix="/api/progress")
+    app.register_blueprint(workouts_bp, url_prefix="/api/workouts")
+    app.register_blueprint(diet_bp, url_prefix="/api/diet")
 
     @app.get("/api/health")
     def health_check():

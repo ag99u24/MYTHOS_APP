@@ -153,6 +153,58 @@ class ProgressEntry(db.Model, TimestampMixin):
         }
 
 
+class WorkoutEntry(db.Model, TimestampMixin):
+    __tablename__ = "workout_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    workout_type: Mapped[Optional[str]] = mapped_column(String(80))
+    duration_minutes: Mapped[Optional[int]] = mapped_column(Integer)
+    intensity: Mapped[Optional[str]] = mapped_column(String(40))
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+    client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "title": self.title,
+            "workout_type": self.workout_type,
+            "duration_minutes": self.duration_minutes,
+            "intensity": self.intensity,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class DietEntry(db.Model, TimestampMixin):
+    __tablename__ = "diet_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    adherence_percentage: Mapped[int] = mapped_column(Integer, nullable=False)
+    meals_completed: Mapped[Optional[int]] = mapped_column(Integer)
+    total_meals: Mapped[Optional[int]] = mapped_column(Integer)
+    water_liters: Mapped[Optional[float]] = mapped_column(Float)
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+    client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "adherence_percentage": self.adherence_percentage,
+            "meals_completed": self.meals_completed,
+            "total_meals": self.total_meals,
+            "water_liters": self.water_liters,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class PasswordResetToken(db.Model, TimestampMixin):
     __tablename__ = "password_reset_tokens"
 
