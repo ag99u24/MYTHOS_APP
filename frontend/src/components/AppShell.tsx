@@ -8,6 +8,7 @@ const navigation = [
   { href: "/clients", label: "Clientes", icon: "C" },
   { href: "/plans", label: "Planes", icon: "N" },
   { href: "/progress", label: "Progreso", icon: "G" },
+  { href: "/nutrition", label: "Nutricion", icon: "A" },
   { href: "/profile", label: "Perfil", icon: "U" },
 ];
 
@@ -32,7 +33,7 @@ export function AppShell({ title, description, action, children }: AppShellProps
                 Profesional
               </span>
             </div>
-            <nav className="mt-5 grid grid-cols-5 gap-2 lg:grid-cols-1">
+            <nav className="mt-5 grid grid-cols-6 gap-2 lg:grid-cols-1">
               {navigation.map((item) => (
                 <Link
                   key={item.href}
