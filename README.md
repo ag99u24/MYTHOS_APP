@@ -36,3 +36,56 @@ Si usas Codespaces, arranca el frontend con:
 ```bash
 npm run dev -- --host 0.0.0.0
 ```
+
+## Despliegue
+
+Arquitectura recomendada:
+
+- Frontend: Vercel.
+- Backend: Render.
+- Base de datos: PostgreSQL en Render.
+
+### Backend en Render
+
+El backend incluye:
+
+- `backend/Procfile`
+- `backend/runtime.txt`
+- `render.yaml`
+- `gunicorn`
+- soporte para `DATABASE_URL` de PostgreSQL
+
+Variables necesarias:
+
+```txt
+SECRET_KEY
+JWT_SECRET_KEY
+DATABASE_URL
+FRONTEND_URL
+```
+
+Despues de desplegar el backend, inicializa las tablas:
+
+```bash
+flask --app run.py init-db
+```
+
+### Frontend en Vercel
+
+Configura el proyecto apuntando a la carpeta:
+
+```txt
+frontend
+```
+
+Variable necesaria:
+
+```txt
+NEXT_PUBLIC_API_URL=https://tu-backend.onrender.com/api
+```
+
+El frontend incluye `frontend/vercel.json` y usa:
+
+```bash
+npm run build
+```
