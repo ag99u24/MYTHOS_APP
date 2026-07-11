@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from uuid import uuid4
 
@@ -211,6 +211,18 @@ class PasswordResetToken(db.Model, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     token: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, default=lambda: uuid4().hex)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc) + timedelta(hours=1),
+    )
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     user: Mapped["User"] = relationship("User")
+
+    def is_expired(self):
+        expires_at = self.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        return expires_at <= datetime.now(timezone.utc)

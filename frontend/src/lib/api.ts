@@ -1,4 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
+const COOKIE_SESSION_TOKEN = "cookie-session";
 
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
@@ -9,9 +10,10 @@ type ApiRequestOptions = {
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method ?? "GET",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+      ...(options.token && options.token !== COOKIE_SESSION_TOKEN ? { Authorization: `Bearer ${options.token}` } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });

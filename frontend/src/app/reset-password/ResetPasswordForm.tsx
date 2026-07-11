@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { FormField } from "@/components/FormField";
 import { FormMessage } from "@/components/FormMessage";
@@ -10,6 +11,8 @@ type ResetPasswordResponse = {
 };
 
 export function ResetPasswordForm() {
+  const searchParams = useSearchParams();
+  const [token, setToken] = useState(searchParams.get("token") ?? "");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -26,13 +29,14 @@ export function ResetPasswordForm() {
       const response = await apiRequest<ResetPasswordResponse>("/auth/reset-password", {
         method: "POST",
         body: {
-          token: formData.get("token"),
+          token,
           password: formData.get("password"),
         },
       });
 
       setSuccess(response.message);
       event.currentTarget.reset();
+      setToken("");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo cambiar la contrasena.");
     } finally {
@@ -44,7 +48,17 @@ export function ResetPasswordForm() {
     <form className="grid gap-4" onSubmit={handleSubmit}>
       {error ? <FormMessage type="error">{error}</FormMessage> : null}
       {success ? <FormMessage type="success">{success}</FormMessage> : null}
-      <FormField label="Token" name="token" placeholder="Token recibido por email" />
+      <label className="grid gap-2 text-sm font-medium text-[#344036]">
+        Token
+        <input
+          name="token"
+          value={token}
+          onChange={(event) => setToken(event.target.value)}
+          placeholder="Token recibido por email"
+          required
+          className="h-12 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-base text-[#18201b] placeholder:text-[#9a9488]"
+        />
+      </label>
       <FormField label="Nueva contrasena" name="password" type="password" placeholder="Nueva contrasena" />
       <button
         disabled={isLoading}

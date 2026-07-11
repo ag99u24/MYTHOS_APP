@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormMessage } from "@/components/FormMessage";
 import { apiRequest } from "@/lib/api";
-import { getToken } from "@/lib/session";
+import { AuthUser, getStoredUser, getToken } from "@/lib/session";
 
 type PlanItem = {
   id?: number;
@@ -53,6 +53,8 @@ const emptyForm: PlanFormState = {
 };
 
 export function PlansClient() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [clients, setClients] = useState<AuthUser[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [form, setForm] = useState<PlanFormState>(emptyForm);
@@ -62,6 +64,8 @@ export function PlansClient() {
   const [isSaving, setIsSaving] = useState(false);
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
+
+  const clientNameById = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
 
   const loadPlans = useCallback(async (activeToken = token) => {
     if (!activeToken) {
@@ -81,11 +85,34 @@ export function PlansClient() {
     }
   }, [token]);
 
+  const loadClients = useCallback(async (activeToken = token) => {
+    if (!activeToken) {
+      return;
+    }
+
+    try {
+      const response = await apiRequest<{ clients: AuthUser[] }>("/users/clients", { token: activeToken });
+      setClients(response.clients);
+    } catch {
+      setClients([]);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => setUser(getStoredUser()));
+  }, []);
+
   useEffect(() => {
     if (token) {
       void Promise.resolve().then(() => loadPlans(token));
     }
   }, [loadPlans, token]);
+
+  useEffect(() => {
+    if (token && user?.role === "professional") {
+      void Promise.resolve().then(() => loadClients(token));
+    }
+  }, [loadClients, token, user?.role]);
 
   function updateField(field: keyof PlanFormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -122,6 +149,11 @@ export function PlansClient() {
 
     if (!token) {
       setError("Inicia sesion para gestionar planes.");
+      return;
+    }
+
+    if (user?.role !== "professional") {
+      setError("Solo profesionales pueden crear o editar planes.");
       return;
     }
 
@@ -228,7 +260,7 @@ export function PlansClient() {
               <div className="flex items-start justify-between gap-4">
                 <button className="text-left" onClick={() => selectPlan(plan)}>
                   <p className="font-semibold">{plan.title}</p>
-                  <p className="mt-1 text-sm text-[#5d6959]">Cliente #{plan.client_id}</p>
+                  <p className="mt-1 text-sm text-[#5d6959]">{clientNameById.get(plan.client_id) ?? `Cliente #${plan.client_id}`}</p>
                 </button>
                 <span className="rounded-md bg-[#f7f5ef] px-3 py-1 text-sm font-semibold">{plan.status}</span>
               </div>
@@ -250,6 +282,7 @@ export function PlansClient() {
         </div>
       </article>
 
+      {user?.role === "professional" ? (
       <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
         <h2 className="text-xl font-semibold">{selectedPlan ? "Editar plan" : "Crear plan"}</h2>
         <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
@@ -263,14 +296,19 @@ export function PlansClient() {
             onChange={(event) => updateField("title", event.target.value)}
           />
           <div className="grid gap-4 md:grid-cols-3">
-            <input
+            <select
               className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
-              placeholder="ID cliente"
               required
-              type="number"
               value={form.client_id}
               onChange={(event) => updateField("client_id", event.target.value)}
-            />
+            >
+              <option value="">Seleccionar cliente</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
             <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.category} onChange={(event) => updateField("category", event.target.value)}>
               <option>Entrenamiento</option>
               <option>Nutricion</option>
@@ -317,6 +355,7 @@ export function PlansClient() {
           </div>
         </form>
       </article>
+      ) : null}
     </section>
   );
 }

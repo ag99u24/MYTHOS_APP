@@ -14,7 +14,7 @@ Backend:
 ```bash
 cd backend
 python -m pip install -r requirements.txt
-flask --app run.py init-db
+flask --app run.py db upgrade
 python run.py
 ```
 
@@ -62,12 +62,20 @@ SECRET_KEY
 JWT_SECRET_KEY
 DATABASE_URL
 FRONTEND_URL
+ALLOW_RESET_TOKEN_RESPONSE=false
+JWT_COOKIE_SAMESITE=None
+JWT_COOKIE_SECURE=true
+RESEND_API_KEY
+MAIL_FROM=Mythos <onboarding@resend.dev>
 ```
 
-Despues de desplegar el backend, inicializa las tablas:
+Para recuperar contrasena por email, crea una API key en Resend y guardala como `RESEND_API_KEY`.
+En produccion, usa un remitente verificado en `MAIL_FROM`.
+
+Despues de desplegar el backend, aplica las migraciones:
 
 ```bash
-flask --app run.py init-db
+flask --app run.py db upgrade
 ```
 
 ### Frontend en Vercel

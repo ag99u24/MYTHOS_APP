@@ -11,6 +11,7 @@ type DietEntry = { id: number; client_id: number; adherence_percentage: number; 
 
 export function ProgressClient() {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [clients, setClients] = useState<AuthUser[]>([]);
   const [clientId, setClientId] = useState("");
   const [progress, setProgress] = useState<ProgressEntry[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([]);
@@ -20,6 +21,20 @@ export function ProgressClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
+
+  const loadClients = useCallback(async () => {
+    if (!token || user?.role !== "professional") return;
+
+    try {
+      const response = await apiRequest<{ clients: AuthUser[] }>("/users/clients", { token });
+      setClients(response.clients);
+      if (!clientId && response.clients[0]) {
+        setClientId(String(response.clients[0].id));
+      }
+    } catch {
+      setClients([]);
+    }
+  }, [clientId, token, user?.role]);
 
   const loadTracking = useCallback(async () => {
     if (!token) return;
@@ -58,6 +73,10 @@ export function ProgressClient() {
     if (user) void Promise.resolve().then(loadTracking);
   }, [loadTracking, user]);
 
+  useEffect(() => {
+    if (user?.role === "professional") void Promise.resolve().then(loadClients);
+  }, [loadClients, user?.role]);
+
   async function submitJson<T>(path: string, body: Record<string, unknown>, onSuccess: (response: T) => void, message: string) {
     if (!token || user?.role !== "client") {
       setError("Solo los clientes pueden registrar seguimiento.");
@@ -86,7 +105,14 @@ export function ProgressClient() {
           <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
             <h2 className="text-xl font-semibold">Consultar cliente</h2>
             <div className="mt-5 grid gap-4">
-              <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="ID del cliente" type="number" value={clientId} onChange={(event) => setClientId(event.target.value)} />
+              <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={clientId} onChange={(event) => setClientId(event.target.value)}>
+                <option value="">Seleccionar cliente</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
               <button className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white hover:bg-[#2c372f]" onClick={loadTracking}>Ver seguimiento</button>
             </div>
           </article>

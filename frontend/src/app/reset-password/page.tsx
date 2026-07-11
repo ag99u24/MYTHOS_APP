@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { AuthCard } from "@/components/AuthCard";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
@@ -16,7 +17,9 @@ export default function ResetPasswordPage() {
         </>
       }
     >
-      <ResetPasswordForm />
+      <Suspense>
+        <ResetPasswordForm />
+      </Suspense>
     </AuthCard>
   );
 }

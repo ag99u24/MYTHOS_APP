@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { apiRequest } from "@/lib/api";
 import { AuthUser, clearSession, getStoredUser } from "@/lib/session";
 
 function getInitials(name: string) {
@@ -21,7 +22,8 @@ export function SessionPanel() {
     void Promise.resolve().then(() => setUser(getStoredUser()));
   }, []);
 
-  function handleLogout() {
+  async function handleLogout() {
+    await apiRequest<{ message: string }>("/auth/logout", { method: "POST" }).catch(() => null);
     clearSession();
     router.push("/login");
   }

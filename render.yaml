@@ -12,6 +12,16 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: https://your-vercel-domain.vercel.app
+      - key: ALLOW_RESET_TOKEN_RESPONSE
+        value: false
+      - key: JWT_COOKIE_SAMESITE
+        value: None
+      - key: JWT_COOKIE_SECURE
+        value: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        value: Mythos <onboarding@resend.dev>
       - key: DATABASE_URL
         fromDatabase:
           name: mythos-db

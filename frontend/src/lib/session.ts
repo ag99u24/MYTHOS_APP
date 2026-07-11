@@ -9,15 +9,16 @@ export type AuthUser = {
 };
 
 export type AuthResponse = {
-  access_token: string;
+  access_token?: string;
   user: AuthUser;
 };
 
 const TOKEN_KEY = "mythos_token";
 const USER_KEY = "mythos_user";
+const COOKIE_SESSION_TOKEN = "cookie-session";
 
 export function saveSession(session: AuthResponse) {
-  window.localStorage.setItem(TOKEN_KEY, session.access_token);
+  window.localStorage.removeItem(TOKEN_KEY);
   saveUser(session.user);
 }
 
@@ -26,7 +27,7 @@ export function saveUser(user: AuthUser) {
 }
 
 export function getToken() {
-  return window.localStorage.getItem(TOKEN_KEY);
+  return window.localStorage.getItem(TOKEN_KEY) ?? (getStoredUser() ? COOKIE_SESSION_TOKEN : null);
 }
 
 export function getStoredUser() {
