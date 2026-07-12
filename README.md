@@ -37,6 +37,25 @@ Si usas Codespaces, arranca el frontend con:
 npm run dev -- --host 0.0.0.0
 ```
 
+## Calidad
+
+Backend:
+
+```bash
+cd backend
+python -m unittest discover -s tests
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+El proyecto incluye GitHub Actions en `.github/workflows/ci.yml` para ejecutar estas comprobaciones en `alex`, `dev`, `main` y pull requests.
+
 ## Despliegue
 
 Arquitectura recomendada:

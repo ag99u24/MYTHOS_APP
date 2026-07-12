@@ -50,6 +50,29 @@ def assign_client():
     return jsonify({"client": client.to_dict()}), 201
 
 
+@users_bp.delete("/clients/<int:client_id>")
+@jwt_required()
+def unassign_client(client_id):
+    professional_id = int(get_jwt_identity())
+
+    if get_jwt().get("role") != "professional":
+        return jsonify({"message": "Only professionals can remove clients"}), 403
+
+    assignment = ClientAssignment.query.filter_by(
+        professional_id=professional_id,
+        client_id=client_id,
+        status="active",
+    ).first()
+
+    if not assignment:
+        return jsonify({"message": "Client not found"}), 404
+
+    assignment.status = "inactive"
+    db.session.commit()
+
+    return jsonify({"message": "Client removed"})
+
+
 @users_bp.patch("/me")
 @jwt_required()
 def update_profile():

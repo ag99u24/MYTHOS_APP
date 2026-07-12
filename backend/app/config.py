@@ -24,3 +24,13 @@ class Config:
     ALLOW_RESET_TOKEN_RESPONSE = os.getenv("ALLOW_RESET_TOKEN_RESPONSE", "true").lower() == "true"
     RESEND_API_KEY = os.getenv("RESEND_API_KEY")
     MAIL_FROM = os.getenv("MAIL_FROM", "Mythos <onboarding@resend.dev>")
+
+
+class TestConfig(Config):
+    TESTING = True
+    SECRET_KEY = "test-secret-key-with-enough-length"
+    JWT_SECRET_KEY = "test-jwt-secret-key-with-enough-length"
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    JWT_COOKIE_SECURE = False
+    ALLOW_RESET_TOKEN_RESPONSE = True
+    RESEND_API_KEY = None

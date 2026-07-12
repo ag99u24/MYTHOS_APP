@@ -17,6 +17,7 @@ export function ClientsClient() {
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [removingClientId, setRemovingClientId] = useState<number | null>(null);
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
 
@@ -82,6 +83,30 @@ export function ClientsClient() {
     }
   }
 
+  async function handleRemoveClient(clientId: number) {
+    if (!token) {
+      setError("Inicia sesion como profesional para desasignar clientes.");
+      return;
+    }
+
+    setRemovingClientId(clientId);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest<{ message: string }>(`/users/clients/${clientId}`, {
+        method: "DELETE",
+        token,
+      });
+      setClients((current) => current.filter((client) => client.id !== clientId));
+      setSuccess("Cliente desasignado correctamente.");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo desasignar el cliente.");
+    } finally {
+      setRemovingClientId(null);
+    }
+  }
+
   if (!token) {
     return (
       <section className="rounded-lg border border-[#d9d4c7] bg-white p-6 shadow-sm">
@@ -140,7 +165,7 @@ export function ClientsClient() {
             <p className="p-5 text-sm text-[#5d6959]">Todavia no hay clientes asignados.</p>
           ) : null}
           {filteredClients.map((client) => (
-            <article key={client.id} className="grid gap-4 border-b border-[#ece7dc] p-5 last:border-b-0 lg:grid-cols-[1.2fr_1fr_120px_120px] lg:items-center">
+            <article key={client.id} className="grid gap-4 border-b border-[#ece7dc] p-5 last:border-b-0 lg:grid-cols-[1.2fr_1fr_120px_120px_130px] lg:items-center">
               <div>
                 <p className="font-semibold">{client.name}</p>
                 <p className="mt-1 text-sm text-[#5d6959]">{client.email}</p>
@@ -152,6 +177,13 @@ export function ClientsClient() {
               <span className="w-fit rounded-md bg-[#edf4e9] px-3 py-1 text-sm font-semibold text-[#37513b]">ID #{client.id}</span>
               <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]">
                 Ver ficha
+              </button>
+              <button
+                className="rounded-md border border-[#f1b5a4] px-3 py-2 text-sm font-semibold text-[#963519] hover:bg-[#fff4ef] disabled:opacity-60"
+                disabled={removingClientId === client.id}
+                onClick={() => void handleRemoveClient(client.id)}
+              >
+                {removingClientId === client.id ? "Quitando..." : "Desasignar"}
               </button>
             </article>
           ))}
