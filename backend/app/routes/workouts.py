@@ -47,3 +47,46 @@ def create_workout():
     db.session.commit()
 
     return jsonify({"workout": entry.to_dict()}), 201
+
+
+@workouts_bp.patch("/<int:entry_id>")
+@jwt_required()
+def update_workout(entry_id):
+    user_id = int(get_jwt_identity())
+    entry = db.session.get(WorkoutEntry, entry_id)
+
+    if get_jwt().get("role") != "client" or not entry or entry.client_id != user_id:
+        return jsonify({"message": "Workout entry not found"}), 404
+
+    data = request.get_json() or {}
+    if "title" in data:
+        if not data.get("title"):
+            return jsonify({"message": "Workout title is required"}), 400
+        entry.title = data["title"].strip()
+
+    if "duration_minutes" in data:
+        duration_minutes, error = parse_optional_int(data.get("duration_minutes"), "duration_minutes", minimum=0)
+        if error:
+            return error
+        entry.duration_minutes = duration_minutes
+
+    for field in ["workout_type", "intensity", "notes"]:
+        if field in data:
+            setattr(entry, field, data[field])
+
+    db.session.commit()
+    return jsonify({"workout": entry.to_dict()})
+
+
+@workouts_bp.delete("/<int:entry_id>")
+@jwt_required()
+def delete_workout(entry_id):
+    user_id = int(get_jwt_identity())
+    entry = db.session.get(WorkoutEntry, entry_id)
+
+    if get_jwt().get("role") != "client" or not entry or entry.client_id != user_id:
+        return jsonify({"message": "Workout entry not found"}), 404
+
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({"message": "Workout entry deleted"})

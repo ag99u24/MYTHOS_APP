@@ -49,3 +49,47 @@ def create_progress():
     db.session.commit()
 
     return jsonify({"progress": entry.to_dict()}), 201
+
+
+@progress_bp.patch("/<int:entry_id>")
+@jwt_required()
+def update_progress(entry_id):
+    user_id = int(get_jwt_identity())
+    entry = db.session.get(ProgressEntry, entry_id)
+
+    if get_jwt().get("role") != "client" or not entry or entry.client_id != user_id:
+        return jsonify({"message": "Progress entry not found"}), 404
+
+    data = request.get_json() or {}
+    if "weight" in data:
+        weight, error = parse_optional_float(data.get("weight"), "weight", minimum=0)
+        if error:
+            return error
+        entry.weight = weight
+
+    if "body_fat" in data:
+        body_fat, error = parse_optional_float(data.get("body_fat"), "body_fat", minimum=0, maximum=100)
+        if error:
+            return error
+        entry.body_fat = body_fat
+
+    for field in ["mood", "notes", "photo_url"]:
+        if field in data:
+            setattr(entry, field, data[field])
+
+    db.session.commit()
+    return jsonify({"progress": entry.to_dict()})
+
+
+@progress_bp.delete("/<int:entry_id>")
+@jwt_required()
+def delete_progress(entry_id):
+    user_id = int(get_jwt_identity())
+    entry = db.session.get(ProgressEntry, entry_id)
+
+    if get_jwt().get("role") != "client" or not entry or entry.client_id != user_id:
+        return jsonify({"message": "Progress entry not found"}), 404
+
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({"message": "Progress entry deleted"})

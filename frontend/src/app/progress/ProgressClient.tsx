@@ -8,6 +8,11 @@ import { AuthUser, getStoredUser, getToken } from "@/lib/session";
 type ProgressEntry = { id: number; client_id: number; weight?: number | null; body_fat?: number | null; mood?: string | null; notes?: string | null; created_at?: string | null };
 type WorkoutEntry = { id: number; client_id: number; title: string; workout_type?: string | null; duration_minutes?: number | null; intensity?: string | null; notes?: string | null; created_at?: string | null };
 type DietEntry = { id: number; client_id: number; adherence_percentage: number; meals_completed?: number | null; total_meals?: number | null; water_liters?: number | null; notes?: string | null; created_at?: string | null };
+type TrackingKind = "progress" | "workout" | "diet";
+type EditingEntry =
+  | { kind: "progress"; entry: ProgressEntry }
+  | { kind: "workout"; entry: WorkoutEntry }
+  | { kind: "diet"; entry: DietEntry };
 
 export function ProgressClient() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -16,6 +21,7 @@ export function ProgressClient() {
   const [progress, setProgress] = useState<ProgressEntry[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([]);
   const [diet, setDiet] = useState<DietEntry[]>([]);
+  const [editingEntry, setEditingEntry] = useState<EditingEntry | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +102,65 @@ export function ProgressClient() {
     }
   }
 
+  async function updateTracking(kind: TrackingKind, id: number, body: Record<string, unknown>) {
+    if (!token || user?.role !== "client") {
+      setError("Solo los clientes pueden editar seguimiento.");
+      return;
+    }
+
+    const pathByKind = { progress: "/progress", workout: "/workouts", diet: "/diet" };
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      if (kind === "progress") {
+        const response = await apiRequest<{ progress: ProgressEntry }>(`${pathByKind[kind]}/${id}`, { method: "PATCH", token, body });
+        setProgress((current) => current.map((entry) => (entry.id === id ? response.progress : entry)));
+      }
+      if (kind === "workout") {
+        const response = await apiRequest<{ workout: WorkoutEntry }>(`${pathByKind[kind]}/${id}`, { method: "PATCH", token, body });
+        setWorkouts((current) => current.map((entry) => (entry.id === id ? response.workout : entry)));
+      }
+      if (kind === "diet") {
+        const response = await apiRequest<{ diet: DietEntry }>(`${pathByKind[kind]}/${id}`, { method: "PATCH", token, body });
+        setDiet((current) => current.map((entry) => (entry.id === id ? response.diet : entry)));
+      }
+
+      setEditingEntry(null);
+      setSuccess("Registro actualizado correctamente.");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo actualizar el registro.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteTracking(kind: TrackingKind, id: number) {
+    if (!token || user?.role !== "client") {
+      setError("Solo los clientes pueden eliminar seguimiento.");
+      return;
+    }
+
+    const pathByKind = { progress: "/progress", workout: "/workouts", diet: "/diet" };
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest<{ message: string }>(`${pathByKind[kind]}/${id}`, { method: "DELETE", token });
+      if (kind === "progress") setProgress((current) => current.filter((entry) => entry.id !== id));
+      if (kind === "workout") setWorkouts((current) => current.filter((entry) => entry.id !== id));
+      if (kind === "diet") setDiet((current) => current.filter((entry) => entry.id !== id));
+      if (editingEntry?.entry.id === id && editingEntry.kind === kind) setEditingEntry(null);
+      setSuccess("Registro eliminado correctamente.");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo eliminar el registro.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
       <div className="grid gap-6">
@@ -117,10 +182,23 @@ export function ProgressClient() {
             </div>
           </article>
         ) : (
-          <ClientTrackingForms isSaving={isSaving} submitJson={submitJson} setProgress={setProgress} setWorkouts={setWorkouts} setDiet={setDiet} />
+          <>
+            {editingEntry ? (
+              <EditTrackingForm editingEntry={editingEntry} isSaving={isSaving} onCancel={() => setEditingEntry(null)} onSave={updateTracking} />
+            ) : null}
+            <ClientTrackingForms isSaving={isSaving} submitJson={submitJson} setProgress={setProgress} setWorkouts={setWorkouts} setDiet={setDiet} />
+          </>
         )}
       </div>
-      <TrackingHistory isLoading={isLoading} progress={progress} workouts={workouts} diet={diet} />
+      <TrackingHistory
+        canManage={user?.role === "client"}
+        isLoading={isLoading}
+        progress={progress}
+        workouts={workouts}
+        diet={diet}
+        onEdit={setEditingEntry}
+        onDelete={deleteTracking}
+      />
     </section>
   );
 }
@@ -208,22 +286,126 @@ function ClientTrackingForms({ isSaving, submitJson, setProgress, setWorkouts, s
   );
 }
 
-function TrackingHistory({ isLoading, progress, workouts, diet }: { isLoading: boolean; progress: ProgressEntry[]; workouts: WorkoutEntry[]; diet: DietEntry[] }) {
+function EditTrackingForm({ editingEntry, isSaving, onCancel, onSave }: {
+  editingEntry: EditingEntry;
+  isSaving: boolean;
+  onCancel: () => void;
+  onSave: (kind: TrackingKind, id: number, body: Record<string, unknown>) => Promise<void>;
+}) {
+  const titleByKind = {
+    progress: "Editar check-in",
+    workout: "Editar entrenamiento",
+    diet: "Editar dieta",
+  };
+
+  return (
+    <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
+      <h2 className="text-xl font-semibold">{titleByKind[editingEntry.kind]}</h2>
+      <form className="mt-5 grid gap-4" onSubmit={(event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+
+        if (editingEntry.kind === "progress") {
+          void onSave("progress", editingEntry.entry.id, {
+            weight: form.get("weight") ? Number(form.get("weight")) : null,
+            body_fat: form.get("body_fat") ? Number(form.get("body_fat")) : null,
+            mood: form.get("mood"),
+            notes: form.get("notes"),
+          });
+        }
+
+        if (editingEntry.kind === "workout") {
+          void onSave("workout", editingEntry.entry.id, {
+            title: form.get("title"),
+            workout_type: form.get("workout_type"),
+            duration_minutes: form.get("duration_minutes") ? Number(form.get("duration_minutes")) : null,
+            intensity: form.get("intensity"),
+            notes: form.get("notes"),
+          });
+        }
+
+        if (editingEntry.kind === "diet") {
+          void onSave("diet", editingEntry.entry.id, {
+            adherence_percentage: Number(form.get("adherence_percentage")),
+            meals_completed: form.get("meals_completed") ? Number(form.get("meals_completed")) : null,
+            total_meals: form.get("total_meals") ? Number(form.get("total_meals")) : null,
+            water_liters: form.get("water_liters") ? Number(form.get("water_liters")) : null,
+            notes: form.get("notes"),
+          });
+        }
+      }}>
+        {editingEntry.kind === "progress" ? (
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              <input name="weight" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="Peso kg" type="number" step="0.1" defaultValue={editingEntry.entry.weight ?? ""} />
+              <input name="body_fat" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="Grasa %" type="number" step="0.1" defaultValue={editingEntry.entry.body_fat ?? ""} />
+            </div>
+            <select name="mood" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" defaultValue={editingEntry.entry.mood ?? "Bien"}><option>Excelente</option><option>Bien</option><option>Cansado</option><option>Con molestias</option></select>
+            <textarea name="notes" className="min-h-20 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3" placeholder="Notas" defaultValue={editingEntry.entry.notes ?? ""} />
+          </>
+        ) : null}
+
+        {editingEntry.kind === "workout" ? (
+          <>
+            <input name="title" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="Nombre del entrenamiento" defaultValue={editingEntry.entry.title} required />
+            <div className="grid gap-4 md:grid-cols-3">
+              <select name="workout_type" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" defaultValue={editingEntry.entry.workout_type ?? "Fuerza"}><option>Fuerza</option><option>Cardio</option><option>Movilidad</option><option>Mixto</option></select>
+              <input name="duration_minutes" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="Minutos" type="number" defaultValue={editingEntry.entry.duration_minutes ?? ""} />
+              <select name="intensity" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" defaultValue={editingEntry.entry.intensity ?? "Media"}><option>Baja</option><option>Media</option><option>Alta</option><option>Maxima</option></select>
+            </div>
+            <textarea name="notes" className="min-h-20 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3" placeholder="Notas del entrenamiento" defaultValue={editingEntry.entry.notes ?? ""} />
+          </>
+        ) : null}
+
+        {editingEntry.kind === "diet" ? (
+          <>
+            <input name="adherence_percentage" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="% cumplimiento dieta" type="number" min="0" max="100" defaultValue={editingEntry.entry.adherence_percentage} required />
+            <div className="grid gap-4 md:grid-cols-3">
+              <input name="meals_completed" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="Comidas cumplidas" type="number" defaultValue={editingEntry.entry.meals_completed ?? ""} />
+              <input name="total_meals" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="Comidas totales" type="number" defaultValue={editingEntry.entry.total_meals ?? ""} />
+              <input name="water_liters" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="Agua litros" type="number" step="0.1" defaultValue={editingEntry.entry.water_liters ?? ""} />
+            </div>
+            <textarea name="notes" className="min-h-20 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3" placeholder="Notas de dieta" defaultValue={editingEntry.entry.notes ?? ""} />
+          </>
+        ) : null}
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button disabled={isSaving} className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white disabled:opacity-70">
+            {isSaving ? "Guardando..." : "Guardar cambios"}
+          </button>
+          <button type="button" className="rounded-md border border-[#d9d4c7] px-4 py-3 font-semibold hover:bg-[#f7f5ef]" onClick={onCancel}>
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </article>
+  );
+}
+
+function TrackingHistory({ canManage, isLoading, progress, workouts, diet, onEdit, onDelete }: {
+  canManage: boolean;
+  isLoading: boolean;
+  progress: ProgressEntry[];
+  workouts: WorkoutEntry[];
+  diet: DietEntry[];
+  onEdit: (editingEntry: EditingEntry) => void;
+  onDelete: (kind: TrackingKind, id: number) => Promise<void>;
+}) {
   return (
     <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
       <h2 className="text-xl font-semibold">Historial</h2>
       <div className="mt-5 grid gap-4">
         {isLoading ? <p className="text-sm text-[#5d6959]">Cargando seguimiento...</p> : null}
         {!isLoading && progress.length === 0 && workouts.length === 0 && diet.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no hay registros.</p> : null}
-        {diet.map((entry) => <HistoryCard key={`diet-${entry.id}`} title={`Dieta ${entry.adherence_percentage}%`} meta={`${entry.meals_completed ?? "-"} / ${entry.total_meals ?? "-"} comidas`} date={entry.created_at} notes={entry.notes} />)}
-        {workouts.map((entry) => <HistoryCard key={`workout-${entry.id}`} title={entry.title} meta={`${entry.workout_type ?? "Entrenamiento"} · ${entry.duration_minutes ?? "-"} min · ${entry.intensity ?? "-"}`} date={entry.created_at} notes={entry.notes} />)}
-        {progress.map((entry) => <HistoryCard key={`progress-${entry.id}`} title="Check-in corporal" meta={`Peso ${entry.weight ?? "-"} kg · Grasa ${entry.body_fat ?? "-"}% · ${entry.mood ?? "-"}`} date={entry.created_at} notes={entry.notes} />)}
+        {diet.map((entry) => <HistoryCard key={`diet-${entry.id}`} canManage={canManage} title={`Dieta ${entry.adherence_percentage}%`} meta={`${entry.meals_completed ?? "-"} / ${entry.total_meals ?? "-"} comidas`} date={entry.created_at} notes={entry.notes} onEdit={() => onEdit({ kind: "diet", entry })} onDelete={() => void onDelete("diet", entry.id)} />)}
+        {workouts.map((entry) => <HistoryCard key={`workout-${entry.id}`} canManage={canManage} title={entry.title} meta={`${entry.workout_type ?? "Entrenamiento"} - ${entry.duration_minutes ?? "-"} min - ${entry.intensity ?? "-"}`} date={entry.created_at} notes={entry.notes} onEdit={() => onEdit({ kind: "workout", entry })} onDelete={() => void onDelete("workout", entry.id)} />)}
+        {progress.map((entry) => <HistoryCard key={`progress-${entry.id}`} canManage={canManage} title="Check-in corporal" meta={`Peso ${entry.weight ?? "-"} kg - Grasa ${entry.body_fat ?? "-"}% - ${entry.mood ?? "-"}`} date={entry.created_at} notes={entry.notes} onEdit={() => onEdit({ kind: "progress", entry })} onDelete={() => void onDelete("progress", entry.id)} />)}
       </div>
     </article>
   );
 }
 
-function HistoryCard({ title, meta, date, notes }: { title: string; meta: string; date?: string | null; notes?: string | null }) {
+function HistoryCard({ canManage, title, meta, date, notes, onEdit, onDelete }: { canManage: boolean; title: string; meta: string; date?: string | null; notes?: string | null; onEdit: () => void; onDelete: () => void }) {
   return (
     <div className="rounded-md border border-[#ece7dc] p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -232,6 +414,16 @@ function HistoryCard({ title, meta, date, notes }: { title: string; meta: string
       </div>
       <p className="mt-3 text-sm text-[#5d6959]">{meta}</p>
       {notes ? <p className="mt-3 text-sm leading-6 text-[#3d493f]">{notes}</p> : null}
+      {canManage ? (
+        <div className="mt-4 flex gap-2">
+          <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={onEdit}>
+            Editar
+          </button>
+          <button className="rounded-md border border-[#f1b5a4] px-3 py-2 text-sm font-semibold text-[#963519] hover:bg-[#fff4ef]" onClick={onDelete}>
+            Eliminar
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
