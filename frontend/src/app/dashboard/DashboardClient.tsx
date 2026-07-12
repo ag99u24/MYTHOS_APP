@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormMessage } from "@/components/FormMessage";
 import { StatCard } from "@/components/StatCard";
 import { apiRequest } from "@/lib/api";
-import { AuthUser, getToken } from "@/lib/session";
+import { AuthUser, getStoredUser, getToken } from "@/lib/session";
 
 type Plan = {
   id: number;
@@ -25,9 +25,17 @@ type Plan = {
   }>;
 };
 
+type ProgressEntry = { id: number; client_id: number; weight?: number | null; body_fat?: number | null; mood?: string | null; created_at?: string | null };
+type WorkoutEntry = { id: number; client_id: number; title: string; workout_type?: string | null; duration_minutes?: number | null; intensity?: string | null; created_at?: string | null };
+type DietEntry = { id: number; client_id: number; adherence_percentage: number; meals_completed?: number | null; total_meals?: number | null; created_at?: string | null };
+
 export function DashboardClient() {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [clients, setClients] = useState<AuthUser[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [progress, setProgress] = useState<ProgressEntry[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutEntry[]>([]);
+  const [diet, setDiet] = useState<DietEntry[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -37,9 +45,32 @@ export function DashboardClient() {
   const draftPlans = plans.filter((plan) => plan.status === "draft");
   const nutritionPlans = plans.filter((plan) => plan.category.toLowerCase() === "nutricion");
   const trainingPlans = plans.filter((plan) => plan.category.toLowerCase() === "entrenamiento");
+  const sortedProgress = [...progress].sort((first, second) => new Date(second.created_at ?? 0).getTime() - new Date(first.created_at ?? 0).getTime());
+  const averageAdherence = diet.length ? Math.round(diet.reduce((total, entry) => total + entry.adherence_percentage, 0) / diet.length) : 0;
+  const latestProgress = sortedProgress[0];
+  const recentActivity = [
+    ...diet.slice(0, 3).map((entry) => ({
+      id: `diet-${entry.id}`,
+      title: `Dieta ${entry.adherence_percentage}%`,
+      detail: `${entry.meals_completed ?? "-"} / ${entry.total_meals ?? "-"} comidas`,
+      date: entry.created_at,
+    })),
+    ...workouts.slice(0, 3).map((entry) => ({
+      id: `workout-${entry.id}`,
+      title: entry.title,
+      detail: `${entry.workout_type ?? "Entrenamiento"} - ${entry.duration_minutes ?? "-"} min`,
+      date: entry.created_at,
+    })),
+    ...progress.slice(0, 3).map((entry) => ({
+      id: `progress-${entry.id}`,
+      title: "Check-in corporal",
+      detail: `Peso ${entry.weight ?? "-"} kg - Grasa ${entry.body_fat ?? "-"}%`,
+      date: entry.created_at,
+    })),
+  ].sort((first, second) => new Date(second.date ?? 0).getTime() - new Date(first.date ?? 0).getTime());
 
   const loadDashboard = useCallback(async () => {
-    if (!token) {
+    if (!token || !user) {
       return;
     }
 
@@ -47,25 +78,59 @@ export function DashboardClient() {
     setError("");
 
     try {
-      const [clientsResponse, plansResponse] = await Promise.all([
-        apiRequest<{ clients: AuthUser[] }>("/users/clients", { token }),
-        apiRequest<{ plans: Plan[] }>("/plans", { token }),
+      const plansRequest = apiRequest<{ plans: Plan[] }>("/plans", { token });
+
+      if (user.role === "professional") {
+        const [clientsResponse, plansResponse] = await Promise.all([
+          apiRequest<{ clients: AuthUser[] }>("/users/clients", { token }),
+          plansRequest,
+        ]);
+        const trackingResponses = await Promise.all(
+          clientsResponse.clients.map((client) =>
+            Promise.all([
+              apiRequest<{ progress: ProgressEntry[] }>(`/progress?client_id=${client.id}`, { token }),
+              apiRequest<{ workouts: WorkoutEntry[] }>(`/workouts?client_id=${client.id}`, { token }),
+              apiRequest<{ diet: DietEntry[] }>(`/diet?client_id=${client.id}`, { token }),
+            ])
+          )
+        );
+
+        setClients(clientsResponse.clients);
+        setPlans(plansResponse.plans);
+        setProgress(trackingResponses.flatMap(([progressResponse]) => progressResponse.progress));
+        setWorkouts(trackingResponses.flatMap(([, workoutsResponse]) => workoutsResponse.workouts));
+        setDiet(trackingResponses.flatMap(([, , dietResponse]) => dietResponse.diet));
+        return;
+      }
+
+      const [plansResponse, progressResponse, workoutsResponse, dietResponse] = await Promise.all([
+        plansRequest,
+        apiRequest<{ progress: ProgressEntry[] }>("/progress", { token }),
+        apiRequest<{ workouts: WorkoutEntry[] }>("/workouts", { token }),
+        apiRequest<{ diet: DietEntry[] }>("/diet", { token }),
       ]);
 
-      setClients(clientsResponse.clients);
+      setClients([]);
       setPlans(plansResponse.plans);
+      setProgress(progressResponse.progress);
+      setWorkouts(workoutsResponse.workouts);
+      setDiet(dietResponse.diet);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo cargar el panel.");
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, user]);
 
   useEffect(() => {
-    if (token) {
+    void Promise.resolve().then(() => setUser(getStoredUser()));
+  }, []);
+
+  useEffect(() => {
+    if (token && user) {
       void Promise.resolve().then(loadDashboard);
     }
-  }, [loadDashboard, token]);
+  }, [loadDashboard, token, user]);
 
   if (!token) {
     return (
@@ -84,22 +149,28 @@ export function DashboardClient() {
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Clientes activos" value={String(clients.length)} detail={isLoading ? "Cargando..." : "Clientes asignados a tu cuenta"} />
+        <StatCard label={user?.role === "professional" ? "Clientes activos" : "Planes asignados"} value={user?.role === "professional" ? String(clients.length) : String(plans.length)} detail={isLoading ? "Cargando..." : user?.role === "professional" ? "Clientes asignados a tu cuenta" : "Planes creados por tu profesional"} />
         <StatCard label="Planes en curso" value={String(activePlans.length)} detail={`${draftPlans.length} borradores pendientes`} />
         <StatCard label="Distribucion" value={`${trainingPlans.length}/${nutritionPlans.length}`} detail="Entrenamiento / Nutricion" />
+      </section>
+
+      <section className="mt-4 grid gap-4 md:grid-cols-3">
+        <StatCard label="Adherencia dieta" value={diet.length ? `${averageAdherence}%` : "-"} detail={`${diet.length} registros de dieta`} />
+        <StatCard label="Entrenamientos" value={String(workouts.length)} detail="Registros completados" />
+        <StatCard label="Ultimo check-in" value={latestProgress?.weight ? `${latestProgress.weight} kg` : "-"} detail={latestProgress?.mood ?? "Sin progreso registrado"} />
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Clientes recientes</h2>
-            <Link href="/clients" className="text-sm font-semibold text-[#c75432]">
+            <h2 className="text-xl font-semibold">{user?.role === "professional" ? "Clientes recientes" : "Tus planes recientes"}</h2>
+            <Link href={user?.role === "professional" ? "/clients" : "/plans"} className="text-sm font-semibold text-[#c75432]">
               Ver todos
             </Link>
           </div>
           <div className="mt-5 grid gap-3">
-            {clients.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no hay clientes asignados.</p> : null}
-            {clients.slice(0, 3).map((client) => (
+            {user?.role === "professional" && clients.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no hay clientes asignados.</p> : null}
+            {user?.role === "professional" ? clients.slice(0, 3).map((client) => (
               <div key={client.id} className="grid gap-3 rounded-md bg-[#f7f5ef] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div>
                   <p className="font-semibold">{client.name}</p>
@@ -107,17 +178,28 @@ export function DashboardClient() {
                 </div>
                 <span className="rounded-md bg-white px-3 py-1 text-sm font-semibold text-[#37513b]">ID #{client.id}</span>
               </div>
-            ))}
+            )) : null}
+            {user?.role === "client" && plans.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no tienes planes asignados.</p> : null}
+            {user?.role === "client" ? plans.slice(0, 3).map((plan) => (
+              <div key={plan.id} className="rounded-md bg-[#f7f5ef] p-4">
+                <p className="font-semibold">{plan.title}</p>
+                <p className="mt-1 text-sm text-[#5d6959]">{plan.category} - {plan.status}</p>
+              </div>
+            )) : null}
           </div>
         </article>
 
         <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold">Actividad reciente</h2>
           <div className="mt-5 grid gap-3">
-            {plans.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Crea tu primer plan para ver actividad aqui.</p> : null}
-            {plans.slice(0, 3).map((plan) => (
-              <div key={plan.id} className="rounded-md border border-[#ece7dc] p-4 text-sm leading-6 text-[#3d493f]">
-                <span className="font-semibold">{plan.title}</span> para cliente #{plan.client_id}
+            {recentActivity.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Registra progreso para ver actividad aqui.</p> : null}
+            {recentActivity.slice(0, 5).map((activity) => (
+              <div key={activity.id} className="rounded-md border border-[#ece7dc] p-4 text-sm leading-6 text-[#3d493f]">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-semibold">{activity.title}</span>
+                  <span className="text-xs text-[#64715f]">{activity.date ? new Date(activity.date).toLocaleDateString("es-ES") : "Sin fecha"}</span>
+                </div>
+                <p className="mt-2 text-[#5d6959]">{activity.detail}</p>
               </div>
             ))}
           </div>

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { FormMessage } from "@/components/FormMessage";
+import { apiRequest } from "@/lib/api";
+import { getToken } from "@/lib/session";
 
 type Product = {
   code?: string;
@@ -48,23 +50,9 @@ export function NutritionClient() {
     setIsLoading(true);
     setError("");
 
-    const params = new URLSearchParams({
-      search_terms: query,
-      search_simple: "1",
-      action: "process",
-      json: "1",
-      page_size: "12",
-      fields: "code,product_name,brands,nutriscore_grade,image_front_small_url,nutriments",
-    });
-
     try {
-      const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`);
-
-      if (!response.ok) {
-        throw new Error("No se pudo consultar Open Food Facts.");
-      }
-
-      const data = (await response.json()) as OpenFoodFactsResponse;
+      const token = getToken();
+      const data = await apiRequest<OpenFoodFactsResponse>(`/nutrition/search?q=${encodeURIComponent(query.trim())}`, { token });
       setProducts(data.products ?? []);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo buscar alimentos.");
