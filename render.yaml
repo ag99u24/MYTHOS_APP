@@ -12,6 +12,8 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: https://your-vercel-domain.vercel.app
+      - key: FRONTEND_URLS
+        value: https://your-vercel-domain.vercel.app
       - key: ALLOW_RESET_TOKEN_RESPONSE
         value: false
       - key: JWT_COOKIE_SAMESITE

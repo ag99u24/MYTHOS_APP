@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormMessage } from "@/components/FormMessage";
+import { PaginationControls, PaginationMeta } from "@/components/PaginationControls";
 import { apiRequest } from "@/lib/api";
 import { AuthUser, getStoredUser, getToken } from "@/lib/session";
 
@@ -24,6 +25,11 @@ type Plan = {
   professional_id: number;
   client_id: number;
   items: PlanItem[];
+};
+
+type PlansResponse = {
+  plans: Plan[];
+  meta?: PaginationMeta;
 };
 
 type PlanFormState = {
@@ -56,6 +62,8 @@ export function PlansClient() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [clients, setClients] = useState<AuthUser[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [plansMeta, setPlansMeta] = useState<PaginationMeta | null>(null);
+  const [page, setPage] = useState(1);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [form, setForm] = useState<PlanFormState>(emptyForm);
   const [error, setError] = useState("");
@@ -76,14 +84,15 @@ export function PlansClient() {
     setError("");
 
     try {
-      const response = await apiRequest<{ plans: Plan[] }>("/plans", { token: activeToken });
+      const response = await apiRequest<PlansResponse>(`/plans?page=${page}&per_page=10`, { token: activeToken });
       setPlans(response.plans);
+      setPlansMeta(response.meta ?? null);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudieron cargar los planes.");
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [page, token]);
 
   const loadClients = useCallback(async (activeToken = token) => {
     if (!activeToken) {
@@ -220,6 +229,7 @@ export function PlansClient() {
           token,
         });
         setPlans((current) => [response.plan, ...current]);
+        setPage(1);
         setSelectedPlan(response.plan);
         setSuccess("Plan creado correctamente.");
       }
@@ -302,6 +312,7 @@ export function PlansClient() {
             </div>
           ))}
         </div>
+        <PaginationControls meta={plansMeta} isLoading={isLoading} onPageChange={setPage} />
       </article>
 
       {user?.role === "professional" ? (

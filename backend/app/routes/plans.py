@@ -3,7 +3,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
 from app.models import Plan, PlanItem, User
-from app.route_utils import parse_int, parse_optional_date, parse_optional_int, professional_has_client
+from app.route_utils import paginate_query, parse_int, parse_optional_date, parse_optional_int, professional_has_client
 
 plans_bp = Blueprint("plans", __name__)
 
@@ -24,8 +24,8 @@ def list_plans():
     if role == "client":
         query = Plan.query.filter_by(client_id=user_id)
 
-    plans = query.order_by(Plan.created_at.desc()).all()
-    return jsonify({"plans": [plan.to_dict() for plan in plans]})
+    plans, meta = paginate_query(query.order_by(Plan.created_at.desc()))
+    return jsonify({"plans": [plan.to_dict() for plan in plans], "meta": meta})
 
 
 @plans_bp.post("")

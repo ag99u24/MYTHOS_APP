@@ -125,6 +125,25 @@ class ApiTestCase(unittest.TestCase):
         )
         self.assertEqual(progress_response.status_code, 404)
 
+    def test_list_endpoints_return_pagination_meta(self):
+        client_session = self.register("pagination@example.com", "client", "Pagination Client")
+
+        for index in range(3):
+            response = self.client.post(
+                "/api/workouts",
+                json={"title": f"Workout {index}", "duration_minutes": 30 + index},
+                headers=self.auth_header(client_session),
+            )
+            self.assertEqual(response.status_code, 201)
+
+        list_response = self.client.get("/api/workouts?page=1&per_page=2", headers=self.auth_header(client_session))
+        self.assertEqual(list_response.status_code, 200)
+        payload = list_response.get_json()
+        self.assertEqual(len(payload["workouts"]), 2)
+        self.assertEqual(payload["meta"]["total"], 3)
+        self.assertEqual(payload["meta"]["pages"], 2)
+        self.assertTrue(payload["meta"]["has_next"])
+
     def test_client_can_update_and_delete_tracking_entries(self):
         client_session = self.register("tracking@example.com", "client", "Tracking Client")
 

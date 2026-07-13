@@ -3,7 +3,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
 from app.models import ProgressEntry
-from app.route_utils import get_client_id_for_tracking, parse_optional_float
+from app.route_utils import get_client_id_for_tracking, paginate_query, parse_optional_float
 
 progress_bp = Blueprint("progress", __name__)
 
@@ -17,8 +17,8 @@ def list_progress():
     if error:
         return error
 
-    entries = ProgressEntry.query.filter_by(client_id=client_id).order_by(ProgressEntry.created_at.desc()).all()
-    return jsonify({"progress": [entry.to_dict() for entry in entries]})
+    entries, meta = paginate_query(ProgressEntry.query.filter_by(client_id=client_id).order_by(ProgressEntry.created_at.desc()))
+    return jsonify({"progress": [entry.to_dict() for entry in entries], "meta": meta})
 
 
 @progress_bp.post("")

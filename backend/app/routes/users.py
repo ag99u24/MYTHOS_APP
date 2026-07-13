@@ -3,6 +3,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
 from app.models import ClientAssignment, User
+from app.route_utils import paginate_query
 
 users_bp = Blueprint("users", __name__)
 
@@ -15,8 +16,10 @@ def list_clients():
     if get_jwt().get("role") != "professional":
         return jsonify({"message": "Only professionals can list clients"}), 403
 
-    assignments = ClientAssignment.query.filter_by(professional_id=user_id, status="active").all()
-    return jsonify({"clients": [assignment.client.to_dict() for assignment in assignments]})
+    assignments, meta = paginate_query(
+        ClientAssignment.query.filter_by(professional_id=user_id, status="active").order_by(ClientAssignment.created_at.desc())
+    )
+    return jsonify({"clients": [assignment.client.to_dict() for assignment in assignments], "meta": meta})
 
 
 @users_bp.post("/clients")

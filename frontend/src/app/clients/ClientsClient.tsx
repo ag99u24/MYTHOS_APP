@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormMessage } from "@/components/FormMessage";
+import { PaginationControls, PaginationMeta } from "@/components/PaginationControls";
 import { apiRequest } from "@/lib/api";
 import { AuthUser, getToken } from "@/lib/session";
 
 type ClientsResponse = {
   clients: AuthUser[];
+  meta?: PaginationMeta;
 };
 
 type Plan = {
@@ -32,6 +34,8 @@ export function ClientsClient() {
   const [clients, setClients] = useState<AuthUser[]>([]);
   const [selectedClient, setSelectedClient] = useState<AuthUser | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
+  const [clientsMeta, setClientsMeta] = useState<PaginationMeta | null>(null);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -61,14 +65,15 @@ export function ClientsClient() {
     setError("");
 
     try {
-      const response = await apiRequest<ClientsResponse>("/users/clients", { token });
+      const response = await apiRequest<ClientsResponse>(`/users/clients?page=${page}&per_page=10`, { token });
       setClients(response.clients);
+      setClientsMeta(response.meta ?? null);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudieron cargar los clientes.");
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [page, token]);
 
   useEffect(() => {
     if (token) {
@@ -96,6 +101,7 @@ export function ClientsClient() {
       });
 
       setClients((current) => [response.client, ...current]);
+      setPage(1);
       setEmail("");
       setSuccess("Cliente asignado correctamente.");
     } catch (caughtError) {
@@ -212,7 +218,13 @@ export function ClientsClient() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={loadClients}>
+          <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={() => {
+            if (page === 1) {
+              void loadClients();
+              return;
+            }
+            setPage(1);
+          }}>
             Actualizar
           </button>
         </div>
@@ -246,6 +258,7 @@ export function ClientsClient() {
             </article>
           ))}
         </div>
+        <PaginationControls meta={clientsMeta} isLoading={isLoading} onPageChange={setPage} />
       </article>
 
       {selectedClient ? (

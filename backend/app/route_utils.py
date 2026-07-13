@@ -59,6 +59,23 @@ def parse_optional_date(value, field_name):
         return None, (jsonify({"message": f"{field_name} must be a valid date"}), 400)
 
 
+def paginate_query(query, default_per_page=50, max_per_page=100):
+    page = request.args.get("page", default=1, type=int)
+    per_page = request.args.get("per_page", default=default_per_page, type=int)
+    page = max(page, 1)
+    per_page = min(max(per_page, 1), max_per_page)
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return pagination.items, {
+        "page": page,
+        "per_page": per_page,
+        "total": pagination.total,
+        "pages": pagination.pages,
+        "has_next": pagination.has_next,
+        "has_prev": pagination.has_prev,
+    }
+
+
 def get_client_id_for_tracking(user_id, role):
     if role != "professional":
         return user_id, None

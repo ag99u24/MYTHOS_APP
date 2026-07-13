@@ -3,7 +3,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
 from app.models import DietEntry
-from app.route_utils import get_client_id_for_tracking, parse_optional_float, parse_optional_int
+from app.route_utils import get_client_id_for_tracking, paginate_query, parse_optional_float, parse_optional_int
 
 diet_bp = Blueprint("diet", __name__)
 
@@ -17,8 +17,8 @@ def list_diet_entries():
     if error:
         return error
 
-    entries = DietEntry.query.filter_by(client_id=client_id).order_by(DietEntry.created_at.desc()).all()
-    return jsonify({"diet": [entry.to_dict() for entry in entries]})
+    entries, meta = paginate_query(DietEntry.query.filter_by(client_id=client_id).order_by(DietEntry.created_at.desc()))
+    return jsonify({"diet": [entry.to_dict() for entry in entries], "meta": meta})
 
 
 @diet_bp.post("")

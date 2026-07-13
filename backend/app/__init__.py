@@ -16,7 +16,7 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    CORS(app, resources={r"/api/*": {"origins": app.config["FRONTEND_URL"]}}, supports_credentials=True)
+    CORS(app, resources={r"/api/*": {"origins": app.config["FRONTEND_URLS"]}}, supports_credentials=True)
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
@@ -32,6 +32,23 @@ def create_app(config_class=Config):
     @app.get("/api/health")
     def health_check():
         return jsonify({"status": "ok", "service": "mythos-api"})
+
+    @app.errorhandler(400)
+    def bad_request(error):
+        return jsonify({"message": "Bad request"}), 400
+
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({"message": "Resource not found"}), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed(error):
+        return jsonify({"message": "Method not allowed"}), 405
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        db.session.rollback()
+        return jsonify({"message": "Internal server error"}), 500
 
     @app.cli.command("init-db")
     def init_db():
