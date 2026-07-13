@@ -205,6 +205,64 @@ class DietEntry(db.Model, TimestampMixin):
         }
 
 
+class SessionAppointment(db.Model, TimestampMixin):
+    __tablename__ = "session_appointments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    session_type: Mapped[str] = mapped_column(String(80), nullable=False, default="Revision")
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="scheduled")
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    duration_minutes: Mapped[Optional[int]] = mapped_column(Integer)
+    meeting_url: Mapped[Optional[str]] = mapped_column(String(500))
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    professional_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+
+    professional: Mapped["User"] = relationship("User", foreign_keys=[professional_id])
+    client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "session_type": self.session_type,
+            "status": self.status,
+            "scheduled_at": self.scheduled_at.isoformat() if self.scheduled_at else None,
+            "duration_minutes": self.duration_minutes,
+            "meeting_url": self.meeting_url,
+            "notes": self.notes,
+            "professional_id": self.professional_id,
+            "client_id": self.client_id,
+        }
+
+
+class ChatMessage(db.Model, TimestampMixin):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    professional_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    professional: Mapped["User"] = relationship("User", foreign_keys=[professional_id])
+    client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
+    sender: Mapped["User"] = relationship("User", foreign_keys=[sender_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "professional_id": self.professional_id,
+            "client_id": self.client_id,
+            "sender_id": self.sender_id,
+            "body": self.body,
+            "read_at": self.read_at.isoformat() if self.read_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class PasswordResetToken(db.Model, TimestampMixin):
     __tablename__ = "password_reset_tokens"
 

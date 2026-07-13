@@ -5,9 +5,11 @@ from app.config import Config
 from app.extensions import db, jwt, migrate
 from app.routes.auth import auth_bp
 from app.routes.diet import diet_bp
+from app.routes.messages import messages_bp
 from app.routes.nutrition import nutrition_bp
 from app.routes.plans import plans_bp
 from app.routes.progress import progress_bp
+from app.routes.sessions import sessions_bp
 from app.routes.users import users_bp
 from app.routes.workouts import workouts_bp
 
@@ -28,6 +30,8 @@ def create_app(config_class=Config):
     app.register_blueprint(workouts_bp, url_prefix="/api/workouts")
     app.register_blueprint(diet_bp, url_prefix="/api/diet")
     app.register_blueprint(nutrition_bp, url_prefix="/api/nutrition")
+    app.register_blueprint(sessions_bp, url_prefix="/api/sessions")
+    app.register_blueprint(messages_bp, url_prefix="/api/messages")
 
     @app.get("/api/health")
     def health_check():

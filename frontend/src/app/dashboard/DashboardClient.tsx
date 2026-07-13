@@ -28,6 +28,7 @@ type Plan = {
 type ProgressEntry = { id: number; client_id: number; weight?: number | null; body_fat?: number | null; mood?: string | null; created_at?: string | null };
 type WorkoutEntry = { id: number; client_id: number; title: string; workout_type?: string | null; duration_minutes?: number | null; intensity?: string | null; created_at?: string | null };
 type DietEntry = { id: number; client_id: number; adherence_percentage: number; meals_completed?: number | null; total_meals?: number | null; created_at?: string | null };
+type Session = { id: number; title: string; session_type: string; status: string; scheduled_at: string; duration_minutes?: number | null; client_id: number };
 
 export function DashboardClient() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -36,8 +37,10 @@ export function DashboardClient() {
   const [progress, setProgress] = useState<ProgressEntry[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([]);
   const [diet, setDiet] = useState<DietEntry[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [currentTime] = useState(() => Date.now());
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
 
@@ -45,9 +48,10 @@ export function DashboardClient() {
   const draftPlans = plans.filter((plan) => plan.status === "draft");
   const nutritionPlans = plans.filter((plan) => plan.category.toLowerCase() === "nutricion");
   const trainingPlans = plans.filter((plan) => plan.category.toLowerCase() === "entrenamiento");
-  const sortedProgress = [...progress].sort((first, second) => new Date(second.created_at ?? 0).getTime() - new Date(first.created_at ?? 0).getTime());
   const averageAdherence = diet.length ? Math.round(diet.reduce((total, entry) => total + entry.adherence_percentage, 0) / diet.length) : 0;
-  const latestProgress = sortedProgress[0];
+  const upcomingSessions = sessions
+    .filter((session) => session.status === "scheduled" && new Date(session.scheduled_at).getTime() >= currentTime)
+    .sort((first, second) => new Date(first.scheduled_at).getTime() - new Date(second.scheduled_at).getTime());
   const recentActivity = [
     ...diet.slice(0, 3).map((entry) => ({
       id: `diet-${entry.id}`,
@@ -79,11 +83,13 @@ export function DashboardClient() {
 
     try {
       const plansRequest = apiRequest<{ plans: Plan[] }>("/plans", { token });
+      const sessionsRequest = apiRequest<{ sessions: Session[] }>("/sessions?per_page=100", { token });
 
       if (user.role === "professional") {
-        const [clientsResponse, plansResponse] = await Promise.all([
+        const [clientsResponse, plansResponse, sessionsResponse] = await Promise.all([
           apiRequest<{ clients: AuthUser[] }>("/users/clients", { token }),
           plansRequest,
+          sessionsRequest,
         ]);
         const trackingResponses = await Promise.all(
           clientsResponse.clients.map((client) =>
@@ -100,14 +106,16 @@ export function DashboardClient() {
         setProgress(trackingResponses.flatMap(([progressResponse]) => progressResponse.progress));
         setWorkouts(trackingResponses.flatMap(([, workoutsResponse]) => workoutsResponse.workouts));
         setDiet(trackingResponses.flatMap(([, , dietResponse]) => dietResponse.diet));
+        setSessions(sessionsResponse.sessions);
         return;
       }
 
-      const [plansResponse, progressResponse, workoutsResponse, dietResponse] = await Promise.all([
+      const [plansResponse, progressResponse, workoutsResponse, dietResponse, sessionsResponse] = await Promise.all([
         plansRequest,
         apiRequest<{ progress: ProgressEntry[] }>("/progress", { token }),
         apiRequest<{ workouts: WorkoutEntry[] }>("/workouts", { token }),
         apiRequest<{ diet: DietEntry[] }>("/diet", { token }),
+        sessionsRequest,
       ]);
 
       setClients([]);
@@ -115,6 +123,7 @@ export function DashboardClient() {
       setProgress(progressResponse.progress);
       setWorkouts(workoutsResponse.workouts);
       setDiet(dietResponse.diet);
+      setSessions(sessionsResponse.sessions);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo cargar el panel.");
     } finally {
@@ -157,7 +166,7 @@ export function DashboardClient() {
       <section className="mt-4 grid gap-4 md:grid-cols-3">
         <StatCard label="Adherencia dieta" value={diet.length ? `${averageAdherence}%` : "-"} detail={`${diet.length} registros de dieta`} />
         <StatCard label="Entrenamientos" value={String(workouts.length)} detail="Registros completados" />
-        <StatCard label="Ultimo check-in" value={latestProgress?.weight ? `${latestProgress.weight} kg` : "-"} detail={latestProgress?.mood ?? "Sin progreso registrado"} />
+        <StatCard label="Proximas sesiones" value={String(upcomingSessions.length)} detail={upcomingSessions[0] ? new Date(upcomingSessions[0].scheduled_at).toLocaleDateString("es-ES") : "Sin sesiones programadas"} />
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -204,6 +213,28 @@ export function DashboardClient() {
             ))}
           </div>
         </article>
+      </section>
+
+      <section className="mt-6 rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Proximas sesiones</h2>
+          <Link href="/sessions" className="text-sm font-semibold text-[#c75432]">
+            Ver agenda
+          </Link>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {upcomingSessions.length === 0 ? <p className="text-sm text-[#5d6959]">No hay sesiones programadas.</p> : null}
+          {upcomingSessions.slice(0, 3).map((session) => (
+            <div key={session.id} className="rounded-md border border-[#ece7dc] p-4">
+              <p className="font-semibold">{session.title}</p>
+              <p className="mt-1 text-sm text-[#5d6959]">{new Date(session.scheduled_at).toLocaleString("es-ES")}</p>
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span>{session.session_type}</span>
+                <span className="font-semibold text-[#c75432]">{session.duration_minutes ?? "-"} min</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="mt-6 rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">

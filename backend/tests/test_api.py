@@ -182,6 +182,63 @@ class ApiTestCase(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_professional_can_create_session_for_assigned_client(self):
+        professional = self.register("session-pro@example.com", "professional", "Coach")
+        client_session = self.register("session-client@example.com", "client", "Session Client")
+
+        self.client.post(
+            "/api/users/clients",
+            json={"email": "session-client@example.com"},
+            headers=self.auth_header(professional),
+        )
+
+        create_response = self.client.post(
+            "/api/sessions",
+            json={
+                "title": "Revision semanal",
+                "client_id": client_session["user"]["id"],
+                "scheduled_at": "2026-07-20T10:00:00",
+                "duration_minutes": 45,
+            },
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        client_list_response = self.client.get("/api/sessions", headers=self.auth_header(client_session))
+        self.assertEqual(client_list_response.status_code, 200)
+        self.assertEqual(len(client_list_response.get_json()["sessions"]), 1)
+
+    def test_assigned_professional_and_client_can_exchange_messages(self):
+        professional = self.register("message-pro@example.com", "professional", "Coach")
+        client_session = self.register("message-client@example.com", "client", "Message Client")
+
+        self.client.post(
+            "/api/users/clients",
+            json={"email": "message-client@example.com"},
+            headers=self.auth_header(professional),
+        )
+
+        professional_message_response = self.client.post(
+            "/api/messages",
+            json={"client_id": client_session["user"]["id"], "body": "Como te fue hoy?"},
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(professional_message_response.status_code, 201)
+
+        client_message_response = self.client.post(
+            "/api/messages",
+            json={"body": "Muy bien, complete el plan."},
+            headers=self.auth_header(client_session),
+        )
+        self.assertEqual(client_message_response.status_code, 201)
+
+        thread_response = self.client.get(
+            f"/api/messages?client_id={client_session['user']['id']}",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(thread_response.status_code, 200)
+        self.assertEqual(len(thread_response.get_json()["messages"]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

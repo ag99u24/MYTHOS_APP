@@ -59,6 +59,17 @@ def parse_optional_date(value, field_name):
         return None, (jsonify({"message": f"{field_name} must be a valid date"}), 400)
 
 
+def parse_datetime(value, field_name):
+    if not value:
+        return None, (jsonify({"message": f"{field_name} is required"}), 400)
+
+    normalized = value.replace("Z", "+00:00") if isinstance(value, str) else value
+    try:
+        return datetime.fromisoformat(normalized), None
+    except (TypeError, ValueError):
+        return None, (jsonify({"message": f"{field_name} must be a valid datetime"}), 400)
+
+
 def paginate_query(query, default_per_page=50, max_per_page=100):
     page = request.args.get("page", default=1, type=int)
     per_page = request.args.get("per_page", default=default_per_page, type=int)
