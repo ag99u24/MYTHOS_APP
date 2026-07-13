@@ -38,6 +38,7 @@ export function DashboardClient() {
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([]);
   const [diet, setDiet] = useState<DietEntry[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentTime] = useState(() => Date.now());
@@ -84,12 +85,14 @@ export function DashboardClient() {
     try {
       const plansRequest = apiRequest<{ plans: Plan[] }>("/plans", { token });
       const sessionsRequest = apiRequest<{ sessions: Session[] }>("/sessions?per_page=100", { token });
+      const unreadMessagesRequest = apiRequest<{ unread_count: number }>("/messages/unread-count", { token });
 
       if (user.role === "professional") {
-        const [clientsResponse, plansResponse, sessionsResponse] = await Promise.all([
+        const [clientsResponse, plansResponse, sessionsResponse, unreadMessagesResponse] = await Promise.all([
           apiRequest<{ clients: AuthUser[] }>("/users/clients", { token }),
           plansRequest,
           sessionsRequest,
+          unreadMessagesRequest,
         ]);
         const trackingResponses = await Promise.all(
           clientsResponse.clients.map((client) =>
@@ -107,15 +110,17 @@ export function DashboardClient() {
         setWorkouts(trackingResponses.flatMap(([, workoutsResponse]) => workoutsResponse.workouts));
         setDiet(trackingResponses.flatMap(([, , dietResponse]) => dietResponse.diet));
         setSessions(sessionsResponse.sessions);
+        setUnreadMessages(unreadMessagesResponse.unread_count);
         return;
       }
 
-      const [plansResponse, progressResponse, workoutsResponse, dietResponse, sessionsResponse] = await Promise.all([
+      const [plansResponse, progressResponse, workoutsResponse, dietResponse, sessionsResponse, unreadMessagesResponse] = await Promise.all([
         plansRequest,
         apiRequest<{ progress: ProgressEntry[] }>("/progress", { token }),
         apiRequest<{ workouts: WorkoutEntry[] }>("/workouts", { token }),
         apiRequest<{ diet: DietEntry[] }>("/diet", { token }),
         sessionsRequest,
+        unreadMessagesRequest,
       ]);
 
       setClients([]);
@@ -124,6 +129,7 @@ export function DashboardClient() {
       setWorkouts(workoutsResponse.workouts);
       setDiet(dietResponse.diet);
       setSessions(sessionsResponse.sessions);
+      setUnreadMessages(unreadMessagesResponse.unread_count);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo cargar el panel.");
     } finally {
@@ -167,6 +173,7 @@ export function DashboardClient() {
         <StatCard label="Adherencia dieta" value={diet.length ? `${averageAdherence}%` : "-"} detail={`${diet.length} registros de dieta`} />
         <StatCard label="Entrenamientos" value={String(workouts.length)} detail="Registros completados" />
         <StatCard label="Proximas sesiones" value={String(upcomingSessions.length)} detail={upcomingSessions[0] ? new Date(upcomingSessions[0].scheduled_at).toLocaleDateString("es-ES") : "Sin sesiones programadas"} />
+        <StatCard label="Mensajes pendientes" value={String(unreadMessages)} detail="Sin leer en el chat" />
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

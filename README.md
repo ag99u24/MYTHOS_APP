@@ -15,7 +15,15 @@ Backend:
 cd backend
 python -m pip install -r requirements.txt
 flask --app run.py db upgrade
+flask --app run.py seed-demo
 python run.py
+```
+
+Credenciales demo:
+
+```txt
+Profesional: coach@mythos.demo / password123
+Cliente: cliente@mythos.demo / password123
 ```
 
 Frontend:

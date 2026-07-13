@@ -232,12 +232,26 @@ class ApiTestCase(unittest.TestCase):
         )
         self.assertEqual(client_message_response.status_code, 201)
 
+        unread_before_response = self.client.get(
+            f"/api/messages/unread-count?client_id={client_session['user']['id']}",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(unread_before_response.status_code, 200)
+        self.assertEqual(unread_before_response.get_json()["unread_count"], 1)
+
         thread_response = self.client.get(
             f"/api/messages?client_id={client_session['user']['id']}",
             headers=self.auth_header(professional),
         )
         self.assertEqual(thread_response.status_code, 200)
         self.assertEqual(len(thread_response.get_json()["messages"]), 2)
+
+        unread_after_response = self.client.get(
+            f"/api/messages/unread-count?client_id={client_session['user']['id']}",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(unread_after_response.status_code, 200)
+        self.assertEqual(unread_after_response.get_json()["unread_count"], 0)
 
 
 if __name__ == "__main__":
