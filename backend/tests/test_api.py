@@ -203,10 +203,46 @@ class ApiTestCase(unittest.TestCase):
             headers=self.auth_header(professional),
         )
         self.assertEqual(create_response.status_code, 201)
+        session_id = create_response.get_json()["session"]["id"]
+
+        invalid_status_response = self.client.post(
+            "/api/sessions",
+            json={
+                "title": "Estado erroneo",
+                "client_id": client_session["user"]["id"],
+                "scheduled_at": "2026-07-21T10:00:00",
+                "status": "unknown",
+            },
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(invalid_status_response.status_code, 400)
+
+        update_response = self.client.patch(
+            f"/api/sessions/{session_id}",
+            json={"status": "completed"},
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(update_response.get_json()["session"]["status"], "completed")
 
         client_list_response = self.client.get("/api/sessions", headers=self.auth_header(client_session))
         self.assertEqual(client_list_response.status_code, 200)
         self.assertEqual(len(client_list_response.get_json()["sessions"]), 1)
+        self.assertEqual(client_list_response.get_json()["sessions"][0]["status"], "completed")
+
+        filtered_response = self.client.get(
+            "/api/sessions?status=completed",
+            headers=self.auth_header(client_session),
+        )
+        self.assertEqual(filtered_response.status_code, 200)
+        self.assertEqual(len(filtered_response.get_json()["sessions"]), 1)
+
+        empty_filtered_response = self.client.get(
+            "/api/sessions?status=scheduled",
+            headers=self.auth_header(client_session),
+        )
+        self.assertEqual(empty_filtered_response.status_code, 200)
+        self.assertEqual(empty_filtered_response.get_json()["sessions"], [])
 
     def test_assigned_professional_and_client_can_exchange_messages(self):
         professional = self.register("message-pro@example.com", "professional", "Coach")

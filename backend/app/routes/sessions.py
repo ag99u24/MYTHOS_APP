@@ -6,12 +6,26 @@ from app.models import SessionAppointment, User
 from app.route_utils import paginate_query, parse_datetime, parse_int, parse_optional_int, professional_has_client
 
 sessions_bp = Blueprint("sessions", __name__)
+SESSION_STATUSES = {"scheduled", "completed", "cancelled"}
 
 
 def can_access_session(session, user_id, role):
     if role == "professional":
         return session.professional_id == user_id
     return session.client_id == user_id
+
+
+def parse_session_status(value):
+    status = (value or "scheduled").strip() if isinstance(value, str) else value or "scheduled"
+    if status not in SESSION_STATUSES:
+        return None, (jsonify({"message": "status must be scheduled, completed or cancelled"}), 400)
+    return status, None
+
+
+def parse_optional_session_status(value):
+    if value in (None, ""):
+        return None, None
+    return parse_session_status(value)
 
 
 @sessions_bp.get("")
@@ -30,6 +44,12 @@ def list_sessions():
         if not professional_has_client(user_id, client_id):
             return jsonify({"message": "Client not found"}), 404
         query = query.filter_by(client_id=client_id)
+
+    status, error = parse_optional_session_status(request.args.get("status"))
+    if error:
+        return error
+    if status:
+        query = query.filter_by(status=status)
 
     sessions, meta = paginate_query(query.order_by(SessionAppointment.scheduled_at.desc()))
     return jsonify({"sessions": [session.to_dict() for session in sessions], "meta": meta})
@@ -65,10 +85,14 @@ def create_session():
     if error:
         return error
 
+    status, error = parse_session_status(data.get("status"))
+    if error:
+        return error
+
     session = SessionAppointment(
         title=data["title"].strip(),
         session_type=data.get("session_type") or "Revision",
-        status=data.get("status") or "scheduled",
+        status=status,
         scheduled_at=scheduled_at,
         duration_minutes=duration_minutes,
         meeting_url=data.get("meeting_url"),
@@ -92,10 +116,16 @@ def update_session(session_id):
         return jsonify({"message": "Session not found"}), 404
 
     data = request.get_json() or {}
-    for field in ["title", "session_type", "status", "meeting_url", "notes"]:
+    for field in ["title", "session_type", "meeting_url", "notes"]:
         if field in data:
             value = data[field].strip() if isinstance(data[field], str) else data[field]
             setattr(session, field, value)
+
+    if "status" in data:
+        status, error = parse_session_status(data.get("status"))
+        if error:
+            return error
+        session.status = status
 
     if "scheduled_at" in data:
         scheduled_at, error = parse_datetime(data.get("scheduled_at"), "scheduled_at")
