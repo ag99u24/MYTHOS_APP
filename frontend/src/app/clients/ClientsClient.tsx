@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormMessage } from "@/components/FormMessage";
 import { PaginationControls, PaginationMeta } from "@/components/PaginationControls";
@@ -23,11 +24,17 @@ type Plan = {
 type ProgressEntry = { id: number; weight?: number | null; body_fat?: number | null; mood?: string | null; created_at?: string | null };
 type WorkoutEntry = { id: number; title: string; workout_type?: string | null; duration_minutes?: number | null; intensity?: string | null; created_at?: string | null };
 type DietEntry = { id: number; adherence_percentage: number; meals_completed?: number | null; total_meals?: number | null; created_at?: string | null };
+type Session = { id: number; title: string; session_type: string; status: string; scheduled_at: string; duration_minutes?: number | null };
 type ClientProfile = {
   plans: Plan[];
   progress: ProgressEntry[];
   workouts: WorkoutEntry[];
   diet: DietEntry[];
+  sessions: Session[];
+};
+
+type ClientSummaryResponse = ClientProfile & {
+  client: AuthUser;
 };
 
 export function ClientsClient() {
@@ -47,15 +54,6 @@ export function ClientsClient() {
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
 
-  const filteredClients = clients.filter((client) => {
-    const term = search.trim().toLowerCase();
-    if (!term) {
-      return true;
-    }
-
-    return client.name.toLowerCase().includes(term) || client.email.toLowerCase().includes(term) || String(client.id).includes(term);
-  });
-
   const loadClients = useCallback(async () => {
     if (!token) {
       return;
@@ -65,7 +63,11 @@ export function ClientsClient() {
     setError("");
 
     try {
-      const response = await apiRequest<ClientsResponse>(`/users/clients?page=${page}&per_page=10`, { token });
+      const params = new URLSearchParams({ page: String(page), per_page: "10" });
+      if (search.trim()) {
+        params.set("q", search.trim());
+      }
+      const response = await apiRequest<ClientsResponse>(`/users/clients?${params.toString()}`, { token });
       setClients(response.clients);
       setClientsMeta(response.meta ?? null);
     } catch (caughtError) {
@@ -73,13 +75,18 @@ export function ClientsClient() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, token]);
+  }, [page, search, token]);
 
   useEffect(() => {
     if (token) {
       void Promise.resolve().then(loadClients);
     }
   }, [loadClients, token]);
+
+  function updateSearch(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
 
   async function handleAssignClient(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -151,19 +158,9 @@ export function ClientsClient() {
     setError("");
 
     try {
-      const [plansResponse, progressResponse, workoutsResponse, dietResponse] = await Promise.all([
-        apiRequest<{ plans: Plan[] }>("/plans", { token }),
-        apiRequest<{ progress: ProgressEntry[] }>(`/progress?client_id=${client.id}`, { token }),
-        apiRequest<{ workouts: WorkoutEntry[] }>(`/workouts?client_id=${client.id}`, { token }),
-        apiRequest<{ diet: DietEntry[] }>(`/diet?client_id=${client.id}`, { token }),
-      ]);
-
-      setClientProfile({
-        plans: plansResponse.plans.filter((plan) => plan.client_id === client.id),
-        progress: progressResponse.progress,
-        workouts: workoutsResponse.workouts,
-        diet: dietResponse.diet,
-      });
+      const response = await apiRequest<ClientSummaryResponse>(`/users/clients/${client.id}/summary`, { token });
+      setSelectedClient(response.client);
+      setClientProfile(response);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo cargar la ficha del cliente.");
     } finally {
@@ -216,7 +213,7 @@ export function ClientsClient() {
             placeholder="Buscar por nombre, email o ID"
             className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => updateSearch(event.target.value)}
           />
           <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={() => {
             if (page === 1) {
@@ -231,10 +228,10 @@ export function ClientsClient() {
 
         <div className="grid">
           {isLoading ? <p className="p-5 text-sm text-[#5d6959]">Cargando clientes...</p> : null}
-          {!isLoading && filteredClients.length === 0 ? (
+          {!isLoading && clients.length === 0 ? (
             <p className="p-5 text-sm text-[#5d6959]">Todavia no hay clientes asignados.</p>
           ) : null}
-          {filteredClients.map((client) => (
+          {clients.map((client) => (
             <article key={client.id} className="grid gap-4 border-b border-[#ece7dc] p-5 last:border-b-0 lg:grid-cols-[1.2fr_1fr_120px_120px_130px] lg:items-center">
               <div>
                 <p className="font-semibold">{client.name}</p>
@@ -272,10 +269,14 @@ export function ClientsClient() {
 }
 
 function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: AuthUser; profile: ClientProfile | null; isLoading: boolean; onClose: () => void }) {
+  const [currentTime] = useState(() => Date.now());
   const activePlans = profile?.plans.filter((plan) => plan.status === "active") ?? [];
   const latestDiet = profile?.diet[0];
   const latestWorkout = profile?.workouts[0];
   const latestProgress = profile?.progress[0];
+  const nextSession = profile?.sessions
+    .filter((session) => session.status === "scheduled" && new Date(session.scheduled_at).getTime() >= currentTime)
+    .sort((first, second) => new Date(first.scheduled_at).getTime() - new Date(second.scheduled_at).getTime())[0];
 
   return (
     <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm xl:col-span-2">
@@ -285,9 +286,14 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
           <p className="mt-1 text-sm text-[#5d6959]">{client.email}</p>
           <p className="mt-2 text-sm font-semibold text-[#344036]">{client.goal || "Objetivo pendiente"}</p>
         </div>
-        <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={onClose}>
-          Cerrar ficha
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link className="rounded-md bg-[#18201b] px-3 py-2 text-sm font-semibold text-white hover:bg-[#2c372f]" href={`/messages?client_id=${client.id}`}>Chat</Link>
+          <Link className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" href={`/plans?client_id=${client.id}`}>Planes</Link>
+          <Link className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" href={`/sessions?client_id=${client.id}`}>Agendar</Link>
+          <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={onClose}>
+            Cerrar ficha
+          </button>
+        </div>
       </div>
 
       {isLoading ? <p className="mt-5 rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Cargando ficha...</p> : null}
@@ -297,7 +303,7 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
           <ProfileMetric label="Planes activos" value={String(activePlans.length)} detail={`${profile.plans.length} planes totales`} />
           <ProfileMetric label="Dieta" value={latestDiet ? `${latestDiet.adherence_percentage}%` : "-"} detail={latestDiet ? `${latestDiet.meals_completed ?? "-"} / ${latestDiet.total_meals ?? "-"} comidas` : "Sin registros"} />
           <ProfileMetric label="Entrenamiento" value={latestWorkout ? latestWorkout.title : "-"} detail={latestWorkout ? `${latestWorkout.duration_minutes ?? "-"} min - ${latestWorkout.intensity ?? "-"}` : "Sin registros"} />
-          <ProfileMetric label="Check-in" value={latestProgress?.weight ? `${latestProgress.weight} kg` : "-"} detail={latestProgress?.mood ?? "Sin registros"} />
+          <ProfileMetric label="Proxima sesion" value={nextSession ? nextSession.title : "-"} detail={nextSession ? new Date(nextSession.scheduled_at).toLocaleString("es-ES") : "Sin sesiones"} />
         </div>
       ) : null}
 
@@ -322,6 +328,7 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
               <ActivityLine label="Dieta" value={latestDiet ? `${latestDiet.adherence_percentage}% cumplimiento` : "Sin registros"} date={latestDiet?.created_at} />
               <ActivityLine label="Entreno" value={latestWorkout ? latestWorkout.title : "Sin registros"} date={latestWorkout?.created_at} />
               <ActivityLine label="Progreso" value={latestProgress ? `Peso ${latestProgress.weight ?? "-"} kg` : "Sin registros"} date={latestProgress?.created_at} />
+              <ActivityLine label="Sesion" value={nextSession ? `${nextSession.title} (${nextSession.session_type})` : "Sin sesiones"} date={nextSession?.scheduled_at} />
             </div>
           </div>
         </div>

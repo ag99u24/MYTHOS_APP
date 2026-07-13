@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormMessage } from "@/components/FormMessage";
 import { PaginationControls, PaginationMeta } from "@/components/PaginationControls";
@@ -59,6 +60,8 @@ const emptyForm: PlanFormState = {
 };
 
 export function PlansClient() {
+  const searchParams = useSearchParams();
+  const initialClientId = searchParams.get("client_id") ?? "";
   const [user, setUser] = useState<AuthUser | null>(null);
   const [clients, setClients] = useState<AuthUser[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -66,9 +69,9 @@ export function PlansClient() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [clientFilter, setClientFilter] = useState("");
+  const [clientFilter, setClientFilter] = useState(initialClientId);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [form, setForm] = useState<PlanFormState>(emptyForm);
+  const [form, setForm] = useState<PlanFormState>(() => ({ ...emptyForm, client_id: initialClientId }));
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -165,7 +168,7 @@ export function PlansClient() {
 
   function startNewPlan() {
     setSelectedPlan(null);
-    setForm({ ...emptyForm, items: [{ day: "Lunes", title: "", details: "" }] });
+    setForm({ ...emptyForm, client_id: clientFilter, items: [{ day: "Lunes", title: "", details: "" }] });
     setSuccess("");
     setError("");
   }
@@ -194,6 +197,9 @@ export function PlansClient() {
   function updateFilter(setter: (value: string) => void, value: string) {
     setter(value);
     setPage(1);
+    if (setter === setClientFilter && !selectedPlan) {
+      setForm((current) => ({ ...current, client_id: value }));
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

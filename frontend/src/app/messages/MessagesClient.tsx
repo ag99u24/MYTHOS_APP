@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormMessage } from "@/components/FormMessage";
 import { apiRequest } from "@/lib/api";
@@ -15,9 +16,10 @@ type ChatMessage = {
 };
 
 export function MessagesClient() {
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [clients, setClients] = useState<AuthUser[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState(() => searchParams.get("client_id") ?? "");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [body, setBody] = useState("");
   const [error, setError] = useState("");

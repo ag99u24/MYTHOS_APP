@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormMessage } from "@/components/FormMessage";
 import { PaginationControls, PaginationMeta } from "@/components/PaginationControls";
@@ -60,13 +61,16 @@ function toDatetimeLocal(value?: string | null) {
 }
 
 export function SessionsClient() {
+  const searchParams = useSearchParams();
+  const initialClientId = searchParams.get("client_id") ?? "";
   const [user, setUser] = useState<AuthUser | null>(null);
   const [clients, setClients] = useState<AuthUser[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
-  const [form, setForm] = useState<SessionForm>(emptyForm);
+  const [clientFilter, setClientFilter] = useState(initialClientId);
+  const [form, setForm] = useState<SessionForm>(() => ({ ...emptyForm, client_id: initialClientId }));
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -84,6 +88,9 @@ export function SessionsClient() {
       if (statusFilter) {
         params.set("status", statusFilter);
       }
+      if (clientFilter && user?.role === "professional") {
+        params.set("client_id", clientFilter);
+      }
       const response = await apiRequest<{ sessions: Session[]; meta?: PaginationMeta }>(`/sessions?${params.toString()}`, { token });
       setSessions(response.sessions);
       setMeta(response.meta ?? null);
@@ -92,7 +99,7 @@ export function SessionsClient() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, statusFilter, token]);
+  }, [clientFilter, page, statusFilter, token, user]);
 
   const loadClients = useCallback(async () => {
     if (!token || user?.role !== "professional") return;
@@ -138,7 +145,7 @@ export function SessionsClient() {
 
   function resetForm() {
     setSelectedSession(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, client_id: clientFilter });
     setError("");
     setSuccess("");
   }
@@ -146,6 +153,14 @@ export function SessionsClient() {
   function changeStatusFilter(value: string) {
     setStatusFilter(value);
     setPage(1);
+  }
+
+  function changeClientFilter(value: string) {
+    setClientFilter(value);
+    setPage(1);
+    if (!selectedSession) {
+      setForm((current) => ({ ...current, client_id: value }));
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -260,12 +275,20 @@ export function SessionsClient() {
       <article className="rounded-lg border border-[#d9d4c7] bg-white shadow-sm">
         <div className="grid gap-4 border-b border-[#ece7dc] p-5 sm:grid-cols-[1fr_auto] sm:items-center">
           <h2 className="text-xl font-semibold">Sesiones</h2>
-          <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={statusFilter} onChange={(event) => changeStatusFilter(event.target.value)}>
-            <option value="">Todas</option>
-            <option value="scheduled">Programadas</option>
-            <option value="completed">Completadas</option>
-            <option value="cancelled">Canceladas</option>
-          </select>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {user?.role === "professional" ? (
+              <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={clientFilter} onChange={(event) => changeClientFilter(event.target.value)}>
+                <option value="">Todos los clientes</option>
+                {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+              </select>
+            ) : null}
+            <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={statusFilter} onChange={(event) => changeStatusFilter(event.target.value)}>
+              <option value="">Todas</option>
+              <option value="scheduled">Programadas</option>
+              <option value="completed">Completadas</option>
+              <option value="cancelled">Canceladas</option>
+            </select>
+          </div>
           {user?.role !== "professional" && error ? <div className="mt-4"><FormMessage type="error">{error}</FormMessage></div> : null}
         </div>
         <div className="grid">

@@ -125,6 +125,76 @@ class ApiTestCase(unittest.TestCase):
         )
         self.assertEqual(progress_response.status_code, 404)
 
+    def test_professional_can_search_assigned_clients(self):
+        professional = self.register("search-pro@example.com", "professional", "Coach")
+        self.register("ana-client@example.com", "client", "Ana Fuerza")
+        self.register("luis-client@example.com", "client", "Luis Nutricion")
+
+        for email in ["ana-client@example.com", "luis-client@example.com"]:
+            assign_response = self.client.post(
+                "/api/users/clients",
+                json={"email": email},
+                headers=self.auth_header(professional),
+            )
+            self.assertEqual(assign_response.status_code, 201)
+
+        search_response = self.client.get(
+            "/api/users/clients?q=ana",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(search_response.status_code, 200)
+        clients = search_response.get_json()["clients"]
+        self.assertEqual(len(clients), 1)
+        self.assertEqual(clients[0]["email"], "ana-client@example.com")
+
+    def test_professional_can_view_assigned_client_summary(self):
+        professional = self.register("summary-pro@example.com", "professional", "Coach")
+        client_session = self.register("summary-client@example.com", "client", "Summary Client")
+        other_client = self.register("summary-other@example.com", "client", "Other Client")
+
+        assign_response = self.client.post(
+            "/api/users/clients",
+            json={"email": "summary-client@example.com"},
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(assign_response.status_code, 201)
+
+        plan_response = self.client.post(
+            "/api/plans",
+            json={
+                "title": "Plan resumen",
+                "category": "Mixto",
+                "status": "active",
+                "client_id": client_session["user"]["id"],
+                "items": [{"day": "Lunes", "title": "Bloque base"}],
+            },
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(plan_response.status_code, 201)
+
+        progress_response = self.client.post(
+            "/api/progress",
+            json={"weight": 78, "mood": "Bien"},
+            headers=self.auth_header(client_session),
+        )
+        self.assertEqual(progress_response.status_code, 201)
+
+        summary_response = self.client.get(
+            f"/api/users/clients/{client_session['user']['id']}/summary",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(summary_response.status_code, 200)
+        summary = summary_response.get_json()
+        self.assertEqual(summary["client"]["email"], "summary-client@example.com")
+        self.assertEqual(len(summary["plans"]), 1)
+        self.assertEqual(len(summary["progress"]), 1)
+
+        forbidden_response = self.client.get(
+            f"/api/users/clients/{other_client['user']['id']}/summary",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(forbidden_response.status_code, 404)
+
     def test_list_endpoints_return_pagination_meta(self):
         client_session = self.register("pagination@example.com", "client", "Pagination Client")
 
