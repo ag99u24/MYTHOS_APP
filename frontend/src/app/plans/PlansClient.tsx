@@ -64,6 +64,9 @@ export function PlansClient() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansMeta, setPlansMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [clientFilter, setClientFilter] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [form, setForm] = useState<PlanFormState>(emptyForm);
   const [error, setError] = useState("");
@@ -84,7 +87,18 @@ export function PlansClient() {
     setError("");
 
     try {
-      const response = await apiRequest<PlansResponse>(`/plans?page=${page}&per_page=10`, { token: activeToken });
+      const params = new URLSearchParams({ page: String(page), per_page: "10" });
+      if (statusFilter) {
+        params.set("status", statusFilter);
+      }
+      if (categoryFilter) {
+        params.set("category", categoryFilter);
+      }
+      if (clientFilter && user?.role === "professional") {
+        params.set("client_id", clientFilter);
+      }
+
+      const response = await apiRequest<PlansResponse>(`/plans?${params.toString()}`, { token: activeToken });
       setPlans(response.plans);
       setPlansMeta(response.meta ?? null);
     } catch (caughtError) {
@@ -92,7 +106,7 @@ export function PlansClient() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, token]);
+  }, [categoryFilter, clientFilter, page, statusFilter, token, user]);
 
   const loadClients = useCallback(async (activeToken = token) => {
     if (!activeToken) {
@@ -175,6 +189,11 @@ export function PlansClient() {
       ...current,
       items: current.items.length > 1 ? current.items.filter((_, itemIndex) => itemIndex !== index) : current.items,
     }));
+  }
+
+  function updateFilter(setter: (value: string) => void, value: string) {
+    setter(value);
+    setPage(1);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -280,6 +299,30 @@ export function PlansClient() {
           <button className="rounded-md bg-[#c75432] px-4 py-2 text-sm font-semibold text-white hover:bg-[#a94529]" onClick={startNewPlan}>
             Crear plan
           </button>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={statusFilter} onChange={(event) => updateFilter(setStatusFilter, event.target.value)}>
+            <option value="">Todos los estados</option>
+            <option value="draft">Borradores</option>
+            <option value="active">Activos</option>
+            <option value="finished">Finalizados</option>
+          </select>
+          <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={categoryFilter} onChange={(event) => updateFilter(setCategoryFilter, event.target.value)}>
+            <option value="">Todas las categorias</option>
+            <option value="Entrenamiento">Entrenamiento</option>
+            <option value="Nutricion">Nutricion</option>
+            <option value="Mixto">Mixto</option>
+          </select>
+          {user?.role === "professional" ? (
+            <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={clientFilter} onChange={(event) => updateFilter(setClientFilter, event.target.value)}>
+              <option value="">Todos los clientes</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
         </div>
 
         <div className="mt-5 grid gap-3">

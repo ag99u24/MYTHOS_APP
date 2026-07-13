@@ -6,12 +6,26 @@ from app.models import Plan, PlanItem, User
 from app.route_utils import paginate_query, parse_int, parse_optional_date, parse_optional_int, professional_has_client
 
 plans_bp = Blueprint("plans", __name__)
+PLAN_STATUSES = {"draft", "active", "finished"}
 
 
 def can_access_plan(plan, user_id, role):
     if role == "professional":
         return plan.professional_id == user_id
     return plan.client_id == user_id
+
+
+def parse_plan_status(value):
+    status = (value or "draft").strip() if isinstance(value, str) else value or "draft"
+    if status not in PLAN_STATUSES:
+        return None, (jsonify({"message": "status must be draft, active or finished"}), 400)
+    return status, None
+
+
+def parse_optional_plan_status(value):
+    if value in (None, ""):
+        return None, None
+    return parse_plan_status(value)
 
 
 @plans_bp.get("")
@@ -23,6 +37,23 @@ def list_plans():
 
     if role == "client":
         query = Plan.query.filter_by(client_id=user_id)
+    elif request.args.get("client_id"):
+        client_id, error = parse_int(request.args.get("client_id"), "client_id")
+        if error:
+            return error
+        if not professional_has_client(user_id, client_id):
+            return jsonify({"message": "Client not found"}), 404
+        query = query.filter_by(client_id=client_id)
+
+    status, error = parse_optional_plan_status(request.args.get("status"))
+    if error:
+        return error
+    if status:
+        query = query.filter_by(status=status)
+
+    category = request.args.get("category")
+    if category:
+        query = query.filter_by(category=category.strip())
 
     plans, meta = paginate_query(query.order_by(Plan.created_at.desc()))
     return jsonify({"plans": [plan.to_dict() for plan in plans], "meta": meta})
@@ -65,11 +96,15 @@ def create_plan():
     if start_date and end_date and end_date < start_date:
         return jsonify({"message": "end_date must be after start_date"}), 400
 
+    status, error = parse_plan_status(data.get("status"))
+    if error:
+        return error
+
     plan = Plan(
         title=data["title"].strip(),
         description=data.get("description"),
         category=data["category"].strip(),
-        status=data.get("status", "draft"),
+        status=status,
         start_date=start_date,
         end_date=end_date,
         professional_id=user_id,
@@ -119,9 +154,15 @@ def update_plan(plan_id):
         return jsonify({"message": "Plan not found"}), 404
 
     data = request.get_json() or {}
-    for field in ["title", "description", "category", "status"]:
+    for field in ["title", "description", "category"]:
         if field in data:
             setattr(plan, field, data[field].strip() if isinstance(data[field], str) else data[field])
+
+    if "status" in data:
+        status, error = parse_plan_status(data.get("status"))
+        if error:
+            return error
+        plan.status = status
 
     if "start_date" in data:
         start_date, error = parse_optional_date(data["start_date"], "start_date")

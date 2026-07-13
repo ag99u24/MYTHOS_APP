@@ -182,6 +182,63 @@ class ApiTestCase(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_professional_can_filter_plans(self):
+        professional = self.register("plan-pro@example.com", "professional", "Coach")
+        client_session = self.register("plan-client@example.com", "client", "Plan Client")
+
+        self.client.post(
+            "/api/users/clients",
+            json={"email": "plan-client@example.com"},
+            headers=self.auth_header(professional),
+        )
+
+        training_response = self.client.post(
+            "/api/plans",
+            json={
+                "title": "Fuerza base",
+                "category": "Entrenamiento",
+                "status": "draft",
+                "client_id": client_session["user"]["id"],
+                "items": [{"day": "Lunes", "title": "Pierna"}],
+            },
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(training_response.status_code, 201)
+
+        nutrition_response = self.client.post(
+            "/api/plans",
+            json={
+                "title": "Deficit controlado",
+                "category": "Nutricion",
+                "status": "active",
+                "client_id": client_session["user"]["id"],
+                "items": [{"day": "General", "title": "Proteina diaria"}],
+            },
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(nutrition_response.status_code, 201)
+
+        invalid_status_response = self.client.post(
+            "/api/plans",
+            json={
+                "title": "Estado invalido",
+                "category": "Mixto",
+                "status": "paused",
+                "client_id": client_session["user"]["id"],
+            },
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(invalid_status_response.status_code, 400)
+
+        filtered_response = self.client.get(
+            f"/api/plans?status=active&category=Nutricion&client_id={client_session['user']['id']}",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(filtered_response.status_code, 200)
+        filtered_plans = filtered_response.get_json()["plans"]
+        self.assertEqual(len(filtered_plans), 1)
+        self.assertEqual(filtered_plans[0]["title"], "Deficit controlado")
+
     def test_professional_can_create_session_for_assigned_client(self):
         professional = self.register("session-pro@example.com", "professional", "Coach")
         client_session = self.register("session-client@example.com", "client", "Session Client")
