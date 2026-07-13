@@ -2,13 +2,14 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getToken } from "@/lib/session";
+import { AuthUser, getStoredUser, getToken } from "@/lib/session";
 
 type PrivateRouteProps = {
+  allowedRoles?: AuthUser["role"][];
   children: React.ReactNode;
 };
 
-export function PrivateRoute({ children }: PrivateRouteProps) {
+export function PrivateRoute({ allowedRoles, children }: PrivateRouteProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
@@ -17,9 +18,17 @@ export function PrivateRoute({ children }: PrivateRouteProps) {
   useEffect(() => {
     void Promise.resolve().then(() => {
       const token = getToken();
+      const user = getStoredUser();
 
-      if (!token) {
+      if (!token || !user) {
         router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+        setIsAllowed(false);
+        setIsChecking(false);
+        return;
+      }
+
+      if (allowedRoles && !allowedRoles.includes(user.role)) {
+        router.replace("/dashboard");
         setIsAllowed(false);
         setIsChecking(false);
         return;
@@ -28,7 +37,7 @@ export function PrivateRoute({ children }: PrivateRouteProps) {
       setIsAllowed(true);
       setIsChecking(false);
     });
-  }, [pathname, router]);
+  }, [allowedRoles, pathname, router]);
 
   if (isChecking) {
     return (
