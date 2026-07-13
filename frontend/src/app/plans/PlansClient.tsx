@@ -34,9 +34,11 @@ type PlanFormState = {
   client_id: string;
   start_date: string;
   end_date: string;
-  item_day: string;
-  item_title: string;
-  item_details: string;
+  items: Array<{
+    day: string;
+    title: string;
+    details: string;
+  }>;
 };
 
 const emptyForm: PlanFormState = {
@@ -47,9 +49,7 @@ const emptyForm: PlanFormState = {
   client_id: "",
   start_date: "",
   end_date: "",
-  item_day: "Lunes",
-  item_title: "",
-  item_details: "",
+  items: [{ day: "Lunes", title: "", details: "" }],
 };
 
 export function PlansClient() {
@@ -119,7 +119,6 @@ export function PlansClient() {
   }
 
   function selectPlan(plan: Plan) {
-    const firstItem = plan.items[0];
     setSelectedPlan(plan);
     setSuccess("");
     setError("");
@@ -131,17 +130,42 @@ export function PlansClient() {
       client_id: String(plan.client_id),
       start_date: plan.start_date ?? "",
       end_date: plan.end_date ?? "",
-      item_day: firstItem?.day ?? "Lunes",
-      item_title: firstItem?.title ?? "",
-      item_details: firstItem?.details ?? "",
+      items: plan.items.length
+        ? plan.items.map((item) => ({
+            day: item.day,
+            title: item.title,
+            details: item.details ?? "",
+          }))
+        : [{ day: "Lunes", title: "", details: "" }],
     });
   }
 
   function startNewPlan() {
     setSelectedPlan(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, items: [{ day: "Lunes", title: "", details: "" }] });
     setSuccess("");
     setError("");
+  }
+
+  function updateItem(index: number, field: "day" | "title" | "details", value: string) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
+    }));
+  }
+
+  function addItem() {
+    setForm((current) => ({
+      ...current,
+      items: [...current.items, { day: "General", title: "", details: "" }],
+    }));
+  }
+
+  function removeItem(index: number) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.length > 1 ? current.items.filter((_, itemIndex) => itemIndex !== index) : current.items,
+    }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -169,16 +193,14 @@ export function PlansClient() {
       client_id: Number(form.client_id),
       start_date: form.start_date || null,
       end_date: form.end_date || null,
-      items: form.item_title
-        ? [
-            {
-              day: form.item_day,
-              title: form.item_title,
-              details: form.item_details,
-              sort_order: 0,
-            },
-          ]
-        : [],
+      items: form.items
+        .filter((item) => item.title.trim())
+        .map((item, index) => ({
+          day: item.day || "General",
+          title: item.title,
+          details: item.details,
+          sort_order: index,
+        })),
     };
 
     try {
@@ -332,17 +354,31 @@ export function PlansClient() {
           />
 
           <div className="rounded-md bg-[#f7f5ef] p-4">
-            <p className="font-semibold">Primer bloque del plan</p>
-            <div className="mt-4 grid gap-4 md:grid-cols-[140px_1fr]">
-              <input className="h-11 rounded-md border border-[#d9d4c7] bg-white px-3" placeholder="Dia" value={form.item_day} onChange={(event) => updateField("item_day", event.target.value)} />
-              <input className="h-11 rounded-md border border-[#d9d4c7] bg-white px-3" placeholder="Actividad o comida" value={form.item_title} onChange={(event) => updateField("item_title", event.target.value)} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="font-semibold">Bloques del plan</p>
+              <button type="button" className="rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#fbfaf7]" onClick={addItem}>
+                Anadir bloque
+              </button>
             </div>
-            <textarea
-              className="mt-4 min-h-20 w-full rounded-md border border-[#d9d4c7] bg-white px-3 py-3"
-              placeholder="Detalles del bloque"
-              value={form.item_details}
-              onChange={(event) => updateField("item_details", event.target.value)}
-            />
+            <div className="mt-4 grid gap-4">
+              {form.items.map((item, index) => (
+                <div key={index} className="rounded-md border border-[#d9d4c7] bg-white p-4">
+                  <div className="grid gap-4 md:grid-cols-[140px_1fr_auto]">
+                    <input className="h-11 rounded-md border border-[#d9d4c7] px-3" placeholder="Dia" value={item.day} onChange={(event) => updateItem(index, "day", event.target.value)} />
+                    <input className="h-11 rounded-md border border-[#d9d4c7] px-3" placeholder="Actividad o comida" value={item.title} onChange={(event) => updateItem(index, "title", event.target.value)} />
+                    <button type="button" className="rounded-md border border-[#f1b5a4] px-3 py-2 text-sm font-semibold text-[#963519] hover:bg-[#fff4ef] disabled:opacity-50" disabled={form.items.length === 1} onClick={() => removeItem(index)}>
+                      Quitar
+                    </button>
+                  </div>
+                  <textarea
+                    className="mt-4 min-h-20 w-full rounded-md border border-[#d9d4c7] px-3 py-3"
+                    placeholder="Detalles del bloque"
+                    value={item.details}
+                    onChange={(event) => updateItem(index, "details", event.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
