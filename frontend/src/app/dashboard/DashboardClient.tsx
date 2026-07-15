@@ -50,9 +50,34 @@ export function DashboardClient() {
   const nutritionPlans = plans.filter((plan) => plan.category.toLowerCase() === "nutricion");
   const trainingPlans = plans.filter((plan) => plan.category.toLowerCase() === "entrenamiento");
   const averageAdherence = diet.length ? Math.round(diet.reduce((total, entry) => total + entry.adherence_percentage, 0) / diet.length) : 0;
+  const lowAdherenceEntries = diet.filter((entry) => entry.adherence_percentage < 70);
+  const attentionItems = [
+    ...(unreadMessages > 0
+      ? [{ id: "messages", title: "Mensajes pendientes", detail: `${unreadMessages} mensajes sin leer`, href: "/messages" }]
+      : []),
+    ...lowAdherenceEntries.slice(0, 2).map((entry) => ({
+      id: `diet-alert-${entry.id}`,
+      title: "Adherencia baja",
+      detail: `Cliente #${entry.client_id} registro ${entry.adherence_percentage}%`,
+      href: `/clients?q=${entry.client_id}`,
+    })),
+  ];
   const upcomingSessions = sessions
     .filter((session) => session.status === "scheduled" && new Date(session.scheduled_at).getTime() >= currentTime)
     .sort((first, second) => new Date(first.scheduled_at).getTime() - new Date(second.scheduled_at).getTime());
+  const sessionsToday = upcomingSessions.filter((session) => {
+    const scheduled = new Date(session.scheduled_at);
+    const today = new Date(currentTime);
+    return scheduled.toDateString() === today.toDateString();
+  });
+  if (sessionsToday.length > 0) {
+    attentionItems.push({
+      id: "sessions-today",
+      title: "Sesiones de hoy",
+      detail: `${sessionsToday.length} sesiones programadas`,
+      href: "/sessions?status=scheduled",
+    });
+  }
   const recentActivity = [
     ...diet.slice(0, 3).map((entry) => ({
       id: `diet-${entry.id}`,
@@ -174,6 +199,22 @@ export function DashboardClient() {
         <StatCard label="Entrenamientos" value={String(workouts.length)} detail="Registros completados" />
         <StatCard label="Proximas sesiones" value={String(upcomingSessions.length)} detail={upcomingSessions[0] ? new Date(upcomingSessions[0].scheduled_at).toLocaleDateString("es-ES") : "Sin sesiones programadas"} />
         <StatCard label="Mensajes pendientes" value={String(unreadMessages)} detail="Sin leer en el chat" />
+      </section>
+
+      <section className="mt-6 rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-semibold">Requiere atencion</h2>
+          <span className="text-sm font-semibold text-[#64715f]">{attentionItems.length} alertas activas</span>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {attentionItems.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todo al dia por ahora.</p> : null}
+          {attentionItems.map((item) => (
+            <Link key={item.id} href={item.href} className="rounded-md border border-[#ece7dc] p-4 text-sm hover:bg-[#f7f5ef]">
+              <p className="font-semibold text-[#18201b]">{item.title}</p>
+              <p className="mt-2 text-[#5d6959]">{item.detail}</p>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

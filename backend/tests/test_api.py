@@ -395,6 +395,13 @@ class ApiTestCase(unittest.TestCase):
         )
         self.assertEqual(client_message_response.status_code, 201)
 
+        long_message_response = self.client.post(
+            "/api/messages",
+            json={"body": "x" * 1001},
+            headers=self.auth_header(client_session),
+        )
+        self.assertEqual(long_message_response.status_code, 400)
+
         unread_before_response = self.client.get(
             f"/api/messages/unread-count?client_id={client_session['user']['id']}",
             headers=self.auth_header(professional),

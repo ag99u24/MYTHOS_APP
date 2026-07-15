@@ -8,6 +8,7 @@ from app.models import ChatMessage, ClientAssignment, User
 from app.route_utils import paginate_query, parse_int, professional_has_client
 
 messages_bp = Blueprint("messages", __name__)
+MAX_MESSAGE_LENGTH = 1000
 
 
 def get_professional_for_client(user_id, professional_id):
@@ -97,6 +98,8 @@ def create_message():
 
     if not body:
         return jsonify({"message": "Message body is required"}), 400
+    if len(body) > MAX_MESSAGE_LENGTH:
+        return jsonify({"message": f"Message body must be {MAX_MESSAGE_LENGTH} characters or fewer"}), 400
 
     if role == "professional":
         client_id, error = parse_int(data.get("client_id"), "client_id")
