@@ -4,7 +4,7 @@ from sqlalchemy import or_
 
 from app.extensions import db
 from app.models import ClientAssignment, DietEntry, Plan, ProgressEntry, SessionAppointment, User, WorkoutEntry
-from app.route_utils import paginate_query
+from app.route_utils import paginate_query, validate_email
 
 users_bp = Blueprint("users", __name__)
 
@@ -157,6 +157,15 @@ def update_profile():
     for field in ["name", "specialty", "goal", "avatar_url"]:
         if field in data:
             setattr(user, field, data[field])
+
+    if "email" in data:
+        email, email_error = validate_email(data.get("email"))
+        if email_error:
+            return email_error
+        existing_user = User.query.filter(User.email == email, User.id != user.id).first()
+        if existing_user:
+            return jsonify({"message": "Email already registered"}), 409
+        user.email = email
 
     db.session.commit()
 

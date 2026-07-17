@@ -70,6 +70,15 @@ def parse_datetime(value, field_name):
         return None, (jsonify({"message": f"{field_name} must be a valid datetime"}), 400)
 
 
+def validate_email(value, field_name="email"):
+    email = (value or "").strip().lower()
+    local_part, separator, domain = email.partition("@")
+    if not local_part or not separator or "." not in domain or domain.startswith(".") or domain.endswith("."):
+        return None, (jsonify({"message": f"{field_name} must be a valid email"}), 400)
+
+    return email, None
+
+
 def paginate_query(query, default_per_page=50, max_per_page=100):
     page = request.args.get("page", default=1, type=int)
     per_page = request.args.get("per_page", default=default_per_page, type=int)

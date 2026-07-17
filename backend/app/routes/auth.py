@@ -6,6 +6,7 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 from app.extensions import db
 from app.email_service import EmailDeliveryError, send_password_reset_email
 from app.models import PasswordResetToken, User
+from app.route_utils import validate_email
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -40,7 +41,10 @@ def register():
     if password_error:
         return password_error
 
-    email = data["email"].strip().lower()
+    email, email_error = validate_email(data.get("email"))
+    if email_error:
+        return email_error
+
     if User.query.filter_by(email=email).first():
         return jsonify({"message": "Email already registered"}), 409
 
@@ -145,6 +149,33 @@ def reset_password():
 
     token.user.set_password(password)
     token.used_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return jsonify({"message": "Password updated"})
+
+
+@auth_bp.post("/change-password")
+@jwt_required()
+def change_password():
+    user = db.session.get(User, int(get_jwt_identity()))
+    data = request.get_json() or {}
+    current_password = data.get("current_password") or ""
+    new_password = data.get("new_password") or ""
+
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    if not current_password or not new_password:
+        return jsonify({"message": "Current password and new password are required"}), 400
+
+    if not user.check_password(current_password):
+        return jsonify({"message": "Current password is incorrect"}), 401
+
+    password_error = validate_password(new_password)
+    if password_error:
+        return password_error
+
+    user.set_password(new_password)
     db.session.commit()
 
     return jsonify({"message": "Password updated"})

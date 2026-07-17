@@ -35,6 +35,12 @@ class ApiTestCase(unittest.TestCase):
         return {"Authorization": f"Bearer {session['access_token']}"}
 
     def test_register_login_and_password_reset(self):
+        invalid_register_response = self.client.post(
+            "/api/auth/register",
+            json={"name": "Invalid Email", "email": "invalid-email", "password": "password123", "role": "client"},
+        )
+        self.assertEqual(invalid_register_response.status_code, 400)
+
         self.register("client@example.com", "client", "Client One")
 
         login_response = self.client.post(
@@ -65,6 +71,67 @@ class ApiTestCase(unittest.TestCase):
             json={"email": "client@example.com", "password": "newpassword123"},
         )
         self.assertEqual(new_login_response.status_code, 200)
+
+    def test_authenticated_user_can_change_password(self):
+        session = self.register("change-password@example.com", "client", "Password Client")
+
+        wrong_current_response = self.client.post(
+            "/api/auth/change-password",
+            json={"current_password": "wrongpassword", "new_password": "updatedpassword123"},
+            headers=self.auth_header(session),
+        )
+        self.assertEqual(wrong_current_response.status_code, 401)
+
+        change_response = self.client.post(
+            "/api/auth/change-password",
+            json={"current_password": "password123", "new_password": "updatedpassword123"},
+            headers=self.auth_header(session),
+        )
+        self.assertEqual(change_response.status_code, 200)
+
+        old_login_response = self.client.post(
+            "/api/auth/login",
+            json={"email": "change-password@example.com", "password": "password123"},
+        )
+        self.assertEqual(old_login_response.status_code, 401)
+
+        new_login_response = self.client.post(
+            "/api/auth/login",
+            json={"email": "change-password@example.com", "password": "updatedpassword123"},
+        )
+        self.assertEqual(new_login_response.status_code, 200)
+
+    def test_authenticated_user_can_update_email_when_unique(self):
+        session = self.register("profile-email@example.com", "client", "Profile Client")
+        self.register("existing-email@example.com", "client", "Existing Client")
+
+        duplicate_response = self.client.patch(
+            "/api/users/me",
+            json={"email": "existing-email@example.com"},
+            headers=self.auth_header(session),
+        )
+        self.assertEqual(duplicate_response.status_code, 409)
+
+        invalid_response = self.client.patch(
+            "/api/users/me",
+            json={"email": "invalid-email"},
+            headers=self.auth_header(session),
+        )
+        self.assertEqual(invalid_response.status_code, 400)
+
+        update_response = self.client.patch(
+            "/api/users/me",
+            json={"email": "updated-profile@example.com", "name": "Profile Updated"},
+            headers=self.auth_header(session),
+        )
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(update_response.get_json()["user"]["email"], "updated-profile@example.com")
+
+        login_response = self.client.post(
+            "/api/auth/login",
+            json={"email": "updated-profile@example.com", "password": "password123"},
+        )
+        self.assertEqual(login_response.status_code, 200)
 
     def test_professional_can_only_view_assigned_client_tracking(self):
         professional = self.register("pro@example.com", "professional", "Coach")

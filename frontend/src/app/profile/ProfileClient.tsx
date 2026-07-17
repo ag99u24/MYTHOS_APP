@@ -7,16 +7,30 @@ import { AuthUser, getToken, saveUser } from "@/lib/session";
 
 type ProfileForm = {
   name: string;
+  email: string;
   specialty: string;
   goal: string;
   avatar_url: string;
 };
 
+type PasswordForm = {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+};
+
 const emptyForm: ProfileForm = {
   name: "",
+  email: "",
   specialty: "",
   goal: "",
   avatar_url: "",
+};
+
+const emptyPasswordForm: PasswordForm = {
+  current_password: "",
+  new_password: "",
+  confirm_password: "",
 };
 
 function initials(name: string) {
@@ -31,10 +45,14 @@ function initials(name: string) {
 export function ProfileClient() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [form, setForm] = useState<ProfileForm>(emptyForm);
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>(emptyPasswordForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
 
@@ -51,6 +69,7 @@ export function ProfileClient() {
       setUser(response.user);
       setForm({
         name: response.user.name,
+        email: response.user.email,
         specialty: response.user.specialty ?? "",
         goal: response.user.goal ?? "",
         avatar_url: response.user.avatar_url ?? "",
@@ -71,6 +90,10 @@ export function ProfileClient() {
 
   function updateField(field: keyof ProfileForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updatePasswordField(field: keyof PasswordForm, value: string) {
+    setPasswordForm((current) => ({ ...current, [field]: value }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -99,6 +122,42 @@ export function ProfileClient() {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo guardar el perfil.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handlePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!token) {
+      setPasswordError("Inicia sesion para cambiar tu contrasena.");
+      return;
+    }
+
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setPasswordError("La nueva contrasena no coincide.");
+      setPasswordSuccess("");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    try {
+      await apiRequest<{ message: string }>("/auth/change-password", {
+        method: "POST",
+        token,
+        body: {
+          current_password: passwordForm.current_password,
+          new_password: passwordForm.new_password,
+        },
+      });
+      setPasswordForm(emptyPasswordForm);
+      setPasswordSuccess("Contrasena actualizada correctamente.");
+    } catch (caughtError) {
+      setPasswordError(caughtError instanceof Error ? caughtError.message : "No se pudo cambiar la contrasena.");
+    } finally {
+      setIsChangingPassword(false);
     }
   }
 
@@ -160,6 +219,16 @@ export function ProfileClient() {
             />
           </label>
           <label className="grid gap-2 text-sm font-medium">
+            Email
+            <input
+              className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
+              required
+              type="email"
+              value={form.email}
+              onChange={(event) => updateField("email", event.target.value)}
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
             Especialidad
             <input
               className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
@@ -190,6 +259,52 @@ export function ProfileClient() {
             className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white hover:bg-[#2c372f] disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSaving ? "Guardando..." : "Guardar perfil"}
+          </button>
+        </form>
+      </article>
+
+      <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm xl:col-start-2">
+        <h2 className="text-xl font-semibold">Seguridad</h2>
+        <form className="mt-5 grid gap-4" onSubmit={handlePasswordSubmit}>
+          {passwordError ? <FormMessage type="error">{passwordError}</FormMessage> : null}
+          {passwordSuccess ? <FormMessage type="success">{passwordSuccess}</FormMessage> : null}
+          <label className="grid gap-2 text-sm font-medium">
+            Contrasena actual
+            <input
+              className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
+              required
+              type="password"
+              value={passwordForm.current_password}
+              onChange={(event) => updatePasswordField("current_password", event.target.value)}
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Nueva contrasena
+            <input
+              className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
+              minLength={8}
+              required
+              type="password"
+              value={passwordForm.new_password}
+              onChange={(event) => updatePasswordField("new_password", event.target.value)}
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Confirmar nueva contrasena
+            <input
+              className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
+              minLength={8}
+              required
+              type="password"
+              value={passwordForm.confirm_password}
+              onChange={(event) => updatePasswordField("confirm_password", event.target.value)}
+            />
+          </label>
+          <button
+            disabled={isChangingPassword}
+            className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white hover:bg-[#2c372f] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isChangingPassword ? "Actualizando..." : "Cambiar contrasena"}
           </button>
         </form>
       </article>
