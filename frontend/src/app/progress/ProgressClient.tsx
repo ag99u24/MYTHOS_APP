@@ -27,6 +27,10 @@ export function ProgressClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
+  const latestProgress = progress[0];
+  const latestDiet = diet[0];
+  const averageDiet = diet.length ? Math.round(diet.reduce((total, entry) => total + entry.adherence_percentage, 0) / diet.length) : 0;
+  const totalWorkoutMinutes = workouts.reduce((total, entry) => total + (entry.duration_minutes ?? 0), 0);
 
   const loadClients = useCallback(async () => {
     if (!token || user?.role !== "professional") return;
@@ -190,6 +194,14 @@ export function ProgressClient() {
           </>
         )}
       </div>
+      <TrackingSummary
+        averageDiet={averageDiet}
+        dietCount={diet.length}
+        latestDiet={latestDiet}
+        latestProgress={latestProgress}
+        totalWorkoutMinutes={totalWorkoutMinutes}
+        workoutCount={workouts.length}
+      />
       <TrackingHistory
         canManage={user?.role === "client"}
         isLoading={isLoading}
@@ -200,6 +212,37 @@ export function ProgressClient() {
         onDelete={deleteTracking}
       />
     </section>
+  );
+}
+
+function TrackingSummary({ averageDiet, dietCount, latestDiet, latestProgress, totalWorkoutMinutes, workoutCount }: {
+  averageDiet: number;
+  dietCount: number;
+  latestDiet?: DietEntry;
+  latestProgress?: ProgressEntry;
+  totalWorkoutMinutes: number;
+  workoutCount: number;
+}) {
+  return (
+    <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
+      <h2 className="text-xl font-semibold">Resumen</h2>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <SummaryMetric label="Peso actual" value={latestProgress?.weight ? `${latestProgress.weight} kg` : "-"} detail={latestProgress?.mood ?? "Sin check-in"} />
+        <SummaryMetric label="Dieta promedio" value={dietCount ? `${averageDiet}%` : "-"} detail={latestDiet ? `Ultimo registro ${latestDiet.adherence_percentage}%` : "Sin registros"} />
+        <SummaryMetric label="Entrenamientos" value={String(workoutCount)} detail="Registros completados" />
+        <SummaryMetric label="Tiempo total" value={`${totalWorkoutMinutes} min`} detail="Minutos registrados" />
+      </div>
+    </article>
+  );
+}
+
+function SummaryMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-md bg-[#f7f5ef] p-4">
+      <p className="text-xs font-semibold text-[#64715f]">{label}</p>
+      <p className="mt-2 text-lg font-semibold">{value}</p>
+      <p className="mt-1 text-sm text-[#5d6959]">{detail}</p>
+    </div>
   );
 }
 
@@ -391,25 +434,73 @@ function TrackingHistory({ canManage, isLoading, progress, workouts, diet, onEdi
   onEdit: (editingEntry: EditingEntry) => void;
   onDelete: (kind: TrackingKind, id: number) => Promise<void>;
 }) {
+  const [kindFilter, setKindFilter] = useState<TrackingKind | "all">("all");
+  const timeline = [
+    ...diet.map((entry) => ({
+      id: `diet-${entry.id}`,
+      kind: "diet" as const,
+      entry,
+      label: "Dieta",
+      title: `Dieta ${entry.adherence_percentage}%`,
+      meta: `${entry.meals_completed ?? "-"} / ${entry.total_meals ?? "-"} comidas`,
+      date: entry.created_at,
+      notes: entry.notes,
+    })),
+    ...workouts.map((entry) => ({
+      id: `workout-${entry.id}`,
+      kind: "workout" as const,
+      entry,
+      label: "Entreno",
+      title: entry.title,
+      meta: `${entry.workout_type ?? "Entrenamiento"} - ${entry.duration_minutes ?? "-"} min - ${entry.intensity ?? "-"}`,
+      date: entry.created_at,
+      notes: entry.notes,
+    })),
+    ...progress.map((entry) => ({
+      id: `progress-${entry.id}`,
+      kind: "progress" as const,
+      entry,
+      label: "Check-in",
+      title: "Check-in corporal",
+      meta: `Peso ${entry.weight ?? "-"} kg - Grasa ${entry.body_fat ?? "-"}% - ${entry.mood ?? "-"}`,
+      date: entry.created_at,
+      notes: entry.notes,
+    })),
+  ].sort((first, second) => new Date(second.date ?? 0).getTime() - new Date(first.date ?? 0).getTime());
+  const filteredTimeline = kindFilter === "all" ? timeline : timeline.filter((item) => item.kind === kindFilter);
+
   return (
     <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
-      <h2 className="text-xl font-semibold">Historial</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Historial</h2>
+          <p className="mt-1 text-sm text-[#64715f]">{filteredTimeline.length} registros visibles</p>
+        </div>
+        <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={kindFilter} onChange={(event) => setKindFilter(event.target.value as TrackingKind | "all")}>
+          <option value="all">Todo</option>
+          <option value="diet">Dieta</option>
+          <option value="workout">Entrenos</option>
+          <option value="progress">Check-ins</option>
+        </select>
+      </div>
       <div className="mt-5 grid gap-4">
         {isLoading ? <p className="text-sm text-[#5d6959]">Cargando seguimiento...</p> : null}
-        {!isLoading && progress.length === 0 && workouts.length === 0 && diet.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no hay registros.</p> : null}
-        {diet.map((entry) => <HistoryCard key={`diet-${entry.id}`} canManage={canManage} title={`Dieta ${entry.adherence_percentage}%`} meta={`${entry.meals_completed ?? "-"} / ${entry.total_meals ?? "-"} comidas`} date={entry.created_at} notes={entry.notes} onEdit={() => onEdit({ kind: "diet", entry })} onDelete={() => void onDelete("diet", entry.id)} />)}
-        {workouts.map((entry) => <HistoryCard key={`workout-${entry.id}`} canManage={canManage} title={entry.title} meta={`${entry.workout_type ?? "Entrenamiento"} - ${entry.duration_minutes ?? "-"} min - ${entry.intensity ?? "-"}`} date={entry.created_at} notes={entry.notes} onEdit={() => onEdit({ kind: "workout", entry })} onDelete={() => void onDelete("workout", entry.id)} />)}
-        {progress.map((entry) => <HistoryCard key={`progress-${entry.id}`} canManage={canManage} title="Check-in corporal" meta={`Peso ${entry.weight ?? "-"} kg - Grasa ${entry.body_fat ?? "-"}% - ${entry.mood ?? "-"}`} date={entry.created_at} notes={entry.notes} onEdit={() => onEdit({ kind: "progress", entry })} onDelete={() => void onDelete("progress", entry.id)} />)}
+        {!isLoading && timeline.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no hay registros.</p> : null}
+        {!isLoading && timeline.length > 0 && filteredTimeline.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">No hay registros para este filtro.</p> : null}
+        {filteredTimeline.map((item) => <HistoryCard key={item.id} canManage={canManage} label={item.label} title={item.title} meta={item.meta} date={item.date} notes={item.notes} onEdit={() => onEdit({ kind: item.kind, entry: item.entry } as EditingEntry)} onDelete={() => void onDelete(item.kind, item.entry.id)} />)}
       </div>
     </article>
   );
 }
 
-function HistoryCard({ canManage, title, meta, date, notes, onEdit, onDelete }: { canManage: boolean; title: string; meta: string; date?: string | null; notes?: string | null; onEdit: () => void; onDelete: () => void }) {
+function HistoryCard({ canManage, label, title, meta, date, notes, onEdit, onDelete }: { canManage: boolean; label: string; title: string; meta: string; date?: string | null; notes?: string | null; onEdit: () => void; onDelete: () => void }) {
   return (
     <div className="rounded-md border border-[#ece7dc] p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-semibold">{title}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-md bg-[#f7f5ef] px-2 py-1 text-xs font-semibold text-[#64715f]">{label}</span>
+          <p className="font-semibold">{title}</p>
+        </div>
         <span className="text-sm text-[#64715f]">{date ? new Date(date).toLocaleDateString("es-ES") : "Sin fecha"}</span>
       </div>
       <p className="mt-3 text-sm text-[#5d6959]">{meta}</p>
