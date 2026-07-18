@@ -34,7 +34,7 @@ export function LoginForm() {
       saveSession(session);
       router.push(nextPath);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "No se pudo iniciar sesion.");
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo iniciar sesión.");
     } finally {
       setIsLoading(false);
     }
@@ -44,14 +44,14 @@ export function LoginForm() {
     <form className="grid gap-4" onSubmit={handleSubmit}>
       {error ? <FormMessage type="error">{error}</FormMessage> : null}
       <FormField label="Email" name="email" type="email" placeholder="tu@email.com" />
-      <FormField label="Contrasena" name="password" type="password" placeholder="Tu contrasena" />
+      <FormField label="Contraseña" name="password" type="password" placeholder="Tu contraseña" />
       <div className="flex items-center justify-between text-sm">
         <label className="flex items-center gap-2 text-[#5d6959]">
           <input type="checkbox" className="size-4 rounded border-[#d9d4c7]" />
           Recordarme
         </label>
         <Link href="/forgot-password" className="font-semibold text-[#c75432]">
-          Recuperar contrasena
+          Recuperar contraseña
         </Link>
       </div>
       <button

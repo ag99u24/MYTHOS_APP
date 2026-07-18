@@ -38,7 +38,7 @@ export function ResetPasswordForm() {
       event.currentTarget.reset();
       setToken("");
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "No se pudo cambiar la contrasena.");
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo cambiar la contraseña.");
     } finally {
       setIsLoading(false);
     }
@@ -59,12 +59,12 @@ export function ResetPasswordForm() {
           className="h-12 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-base text-[#18201b] placeholder:text-[#9a9488]"
         />
       </label>
-      <FormField label="Nueva contrasena" name="password" type="password" placeholder="Nueva contrasena" />
+      <FormField label="Nueva contraseña" name="password" type="password" placeholder="Nueva contraseña" />
       <button
         disabled={isLoading}
         className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white hover:bg-[#2c372f] disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isLoading ? "Guardando..." : "Cambiar contrasena"}
+        {isLoading ? "Guardando..." : "Cambiar contraseña"}
       </button>
     </form>
   );

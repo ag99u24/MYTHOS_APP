@@ -206,7 +206,7 @@ export function PlansClient() {
     event.preventDefault();
 
     if (!token) {
-      setError("Inicia sesion para gestionar planes.");
+      setError("Inicia sesión para gestionar planes.");
       return;
     }
 
@@ -267,7 +267,7 @@ export function PlansClient() {
 
   async function deletePlan(planId: number) {
     if (!token) {
-      setError("Inicia sesion para eliminar planes.");
+      setError("Inicia sesión para eliminar planes.");
       return;
     }
 
@@ -292,7 +292,7 @@ export function PlansClient() {
   if (!token) {
     return (
       <section className="rounded-lg border border-[#d9d4c7] bg-white p-6 shadow-sm">
-        <FormMessage type="error">Inicia sesion para gestionar planes reales.</FormMessage>
+        <FormMessage type="error">Inicia sesión para gestionar planes reales.</FormMessage>
       </section>
     );
   }
@@ -316,7 +316,7 @@ export function PlansClient() {
           <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={categoryFilter} onChange={(event) => updateFilter(setCategoryFilter, event.target.value)}>
             <option value="">Todas las categorias</option>
             <option value="Entrenamiento">Entrenamiento</option>
-            <option value="Nutricion">Nutricion</option>
+            <option value="Nutricion">Nutrición</option>
             <option value="Mixto">Mixto</option>
           </select>
           {user?.role === "professional" ? (
@@ -334,7 +334,7 @@ export function PlansClient() {
         <div className="mt-5 grid gap-3">
           {isLoading ? <p className="text-sm text-[#5d6959]">Cargando planes...</p> : null}
           {!isLoading && plans.length === 0 ? (
-            <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no hay planes creados.</p>
+            <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavía no hay planes creados.</p>
           ) : null}
           {plans.map((plan) => (
             <div key={plan.id} className="rounded-md border border-[#ece7dc] p-4">
@@ -393,7 +393,7 @@ export function PlansClient() {
             </select>
             <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.category} onChange={(event) => updateField("category", event.target.value)}>
               <option>Entrenamiento</option>
-              <option>Nutricion</option>
+              <option>Nutrición</option>
               <option>Mixto</option>
             </select>
             <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.status} onChange={(event) => updateField("status", event.target.value)}>
@@ -408,7 +408,7 @@ export function PlansClient() {
           </div>
           <textarea
             className="min-h-24 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3"
-            placeholder="Descripcion del plan"
+            placeholder="Descripción del plan"
             value={form.description}
             onChange={(event) => updateField("description", event.target.value)}
           />
@@ -417,7 +417,7 @@ export function PlansClient() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-semibold">Bloques del plan</p>
               <button type="button" className="rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#fbfaf7]" onClick={addItem}>
-                Anadir bloque
+                Añadir bloque
               </button>
             </div>
             <div className="mt-4 grid gap-4">

@@ -133,7 +133,7 @@ export function MessagesClient() {
         </div>
         <div className="grid min-h-[460px] content-end gap-3 p-5">
           {isLoading ? <p className="text-sm text-[#5d6959]">Cargando mensajes...</p> : null}
-          {!isLoading && messages.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no hay mensajes.</p> : null}
+          {!isLoading && messages.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavía no hay mensajes.</p> : null}
           {messages.map((message) => {
             const mine = message.sender_id === user?.id;
             return (

@@ -31,7 +31,7 @@ export function SessionPanel() {
   if (!user) {
     return (
       <div className="mt-5 rounded-lg border border-[#d9d4c7] bg-[#f7f5ef] p-3">
-        <p className="text-sm font-semibold text-[#344036]">Sesion no iniciada</p>
+        <p className="text-sm font-semibold text-[#344036]">Sesión no iniciada</p>
         <button className="mt-3 w-full rounded-md bg-[#18201b] px-3 py-2 text-sm font-semibold text-white" onClick={() => router.push("/login")}>
           Entrar
         </button>
@@ -51,7 +51,7 @@ export function SessionPanel() {
         </div>
       </div>
       <button className="mt-3 w-full rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#fbfaf7]" onClick={handleLogout}>
-        Cerrar sesion
+        Cerrar sesión
       </button>
     </div>
   );

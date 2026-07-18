@@ -43,7 +43,7 @@ export function PrivateRoute({ allowedRoles, children }: PrivateRouteProps) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f5ef] px-5 text-[#18201b]">
         <div className="rounded-lg border border-[#d9d4c7] bg-white p-5 text-center shadow-sm">
-          <p className="font-semibold">Comprobando sesion</p>
+          <p className="font-semibold">Comprobando sesión</p>
           <p className="mt-2 text-sm text-[#5d6959]">Un momento.</p>
         </div>
       </div>

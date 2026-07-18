@@ -12,7 +12,7 @@ export const clients = [
     goal: "Rendimiento y nutricion deportiva",
     status: "Activo",
     lastCheckIn: "Ayer",
-    plan: "Nutricion rendimiento",
+    plan: "Nutrición rendimiento",
     progress: "-1.2 kg",
   },
   {
@@ -35,7 +35,7 @@ export const plans = [
     items: 18,
   },
   {
-    title: "Nutricion rendimiento",
+    title: "Nutrición rendimiento",
     client: "Hugo Rivas",
     category: "Nutricion",
     status: "Borrador",

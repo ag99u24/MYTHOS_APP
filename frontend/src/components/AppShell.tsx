@@ -15,7 +15,7 @@ const navigation = [
   { href: "/sessions", label: "Agenda", icon: "S", roles: ["professional", "client"] },
   { href: "/messages", label: "Chat", icon: "M", roles: ["professional", "client"] },
   { href: "/progress", label: "Progreso", icon: "G", roles: ["professional", "client"] },
-  { href: "/nutrition", label: "Nutricion", icon: "A", roles: ["professional", "client"] },
+  { href: "/nutrition", label: "Nutrición", icon: "A", roles: ["professional", "client"] },
   { href: "/profile", label: "Perfil", icon: "U", roles: ["professional", "client"] },
 ];
 

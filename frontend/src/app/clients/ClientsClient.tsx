@@ -92,7 +92,7 @@ export function ClientsClient() {
     event.preventDefault();
 
     if (!token) {
-      setError("Inicia sesion como profesional para asignar clientes.");
+      setError("Inicia sesión como profesional para asignar clientes.");
       return;
     }
 
@@ -120,7 +120,7 @@ export function ClientsClient() {
 
   async function handleRemoveClient(clientId: number) {
     if (!token) {
-      setError("Inicia sesion como profesional para desasignar clientes.");
+      setError("Inicia sesión como profesional para desasignar clientes.");
       return;
     }
 
@@ -148,7 +148,7 @@ export function ClientsClient() {
 
   async function handleViewClient(client: AuthUser) {
     if (!token) {
-      setError("Inicia sesion como profesional para ver la ficha.");
+      setError("Inicia sesión como profesional para ver la ficha.");
       return;
     }
 
@@ -171,7 +171,7 @@ export function ClientsClient() {
   if (!token) {
     return (
       <section className="rounded-lg border border-[#d9d4c7] bg-white p-6 shadow-sm">
-        <FormMessage type="error">Inicia sesion como profesional para gestionar clientes reales.</FormMessage>
+        <FormMessage type="error">Inicia sesión como profesional para gestionar clientes reales.</FormMessage>
       </section>
     );
   }
@@ -202,7 +202,7 @@ export function ClientsClient() {
             disabled={isAssigning}
             className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white hover:bg-[#2c372f] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isAssigning ? "Asignando..." : "Anadir cliente"}
+            {isAssigning ? "Asignando..." : "Añadir cliente"}
           </button>
         </form>
       </article>
@@ -229,7 +229,7 @@ export function ClientsClient() {
         <div className="grid">
           {isLoading ? <p className="p-5 text-sm text-[#5d6959]">Cargando clientes...</p> : null}
           {!isLoading && clients.length === 0 ? (
-            <p className="p-5 text-sm text-[#5d6959]">Todavia no hay clientes asignados.</p>
+            <p className="p-5 text-sm text-[#5d6959]">Todavía no hay clientes asignados.</p>
           ) : null}
           {clients.map((client) => (
             <article key={client.id} className="grid gap-4 border-b border-[#ece7dc] p-5 last:border-b-0 lg:grid-cols-[1.2fr_1fr_120px_120px_130px] lg:items-center">
@@ -303,7 +303,7 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
           <ProfileMetric label="Planes activos" value={String(activePlans.length)} detail={`${profile.plans.length} planes totales`} />
           <ProfileMetric label="Dieta" value={latestDiet ? `${latestDiet.adherence_percentage}%` : "-"} detail={latestDiet ? `${latestDiet.meals_completed ?? "-"} / ${latestDiet.total_meals ?? "-"} comidas` : "Sin registros"} />
           <ProfileMetric label="Entrenamiento" value={latestWorkout ? latestWorkout.title : "-"} detail={latestWorkout ? `${latestWorkout.duration_minutes ?? "-"} min - ${latestWorkout.intensity ?? "-"}` : "Sin registros"} />
-          <ProfileMetric label="Proxima sesion" value={nextSession ? nextSession.title : "-"} detail={nextSession ? new Date(nextSession.scheduled_at).toLocaleString("es-ES") : "Sin sesiones"} />
+          <ProfileMetric label="Próxima sesión" value={nextSession ? nextSession.title : "-"} detail={nextSession ? new Date(nextSession.scheduled_at).toLocaleString("es-ES") : "Sin sesiones"} />
         </div>
       ) : null}
 
@@ -323,12 +323,12 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
           </div>
 
           <div className="rounded-md border border-[#ece7dc] p-4">
-            <h3 className="font-semibold">Ultima actividad</h3>
+            <h3 className="font-semibold">Última actividad</h3>
             <div className="mt-3 grid gap-2 text-sm">
               <ActivityLine label="Dieta" value={latestDiet ? `${latestDiet.adherence_percentage}% cumplimiento` : "Sin registros"} date={latestDiet?.created_at} />
               <ActivityLine label="Entreno" value={latestWorkout ? latestWorkout.title : "Sin registros"} date={latestWorkout?.created_at} />
               <ActivityLine label="Progreso" value={latestProgress ? `Peso ${latestProgress.weight ?? "-"} kg` : "Sin registros"} date={latestProgress?.created_at} />
-              <ActivityLine label="Sesion" value={nextSession ? `${nextSession.title} (${nextSession.session_type})` : "Sin sesiones"} date={nextSession?.scheduled_at} />
+              <ActivityLine label="Sesión" value={nextSession ? `${nextSession.title} (${nextSession.session_type})` : "Sin sesiones"} date={nextSession?.scheduled_at} />
             </div>
           </div>
         </div>

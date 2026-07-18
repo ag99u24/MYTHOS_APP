@@ -5,8 +5,8 @@ import { ForgotPasswordForm } from "./ForgotPasswordForm";
 export default function ForgotPasswordPage() {
   return (
     <AuthCard
-      title="Recuperar contrasena"
-      description="Introduce tu email y te enviaremos instrucciones para crear una nueva contrasena."
+      title="Recuperar contraseña"
+      description="Introduce tu email y te enviaremos instrucciones para crear una nueva contraseña."
       footer={
         <>
           Ya la recuerdas?{" "}

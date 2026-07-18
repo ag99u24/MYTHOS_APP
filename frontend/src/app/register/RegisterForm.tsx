@@ -53,7 +53,7 @@ export function RegisterForm() {
           <option value="client">Cliente</option>
         </select>
       </label>
-      <FormField label="Contrasena" name="password" type="password" placeholder="Minimo 8 caracteres" />
+      <FormField label="Contraseña" name="password" type="password" placeholder="Mínimo 8 caracteres" />
       <button
         disabled={isLoading}
         className="rounded-md bg-[#18201b] px-4 py-3 text-center font-semibold text-white hover:bg-[#2c372f] disabled:cursor-not-allowed disabled:opacity-70"

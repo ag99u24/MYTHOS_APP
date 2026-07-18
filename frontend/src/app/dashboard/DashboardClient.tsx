@@ -175,7 +175,7 @@ export function DashboardClient() {
   if (!token) {
     return (
       <section className="rounded-lg border border-[#d9d4c7] bg-white p-6 shadow-sm">
-        <FormMessage type="error">Inicia sesion para ver tu panel real.</FormMessage>
+        <FormMessage type="error">Inicia sesión para ver tu panel real.</FormMessage>
       </section>
     );
   }
@@ -191,19 +191,19 @@ export function DashboardClient() {
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard label={user?.role === "professional" ? "Clientes activos" : "Planes asignados"} value={user?.role === "professional" ? String(clients.length) : String(plans.length)} detail={isLoading ? "Cargando..." : user?.role === "professional" ? "Clientes asignados a tu cuenta" : "Planes creados por tu profesional"} />
         <StatCard label="Planes en curso" value={String(activePlans.length)} detail={`${draftPlans.length} borradores pendientes`} />
-        <StatCard label="Distribucion" value={`${trainingPlans.length}/${nutritionPlans.length}`} detail="Entrenamiento / Nutricion" />
+        <StatCard label="Distribución" value={`${trainingPlans.length}/${nutritionPlans.length}`} detail="Entrenamiento / Nutrición" />
       </section>
 
       <section className="mt-4 grid gap-4 md:grid-cols-3">
         <StatCard label="Adherencia dieta" value={diet.length ? `${averageAdherence}%` : "-"} detail={`${diet.length} registros de dieta`} />
         <StatCard label="Entrenamientos" value={String(workouts.length)} detail="Registros completados" />
-        <StatCard label="Proximas sesiones" value={String(upcomingSessions.length)} detail={upcomingSessions[0] ? new Date(upcomingSessions[0].scheduled_at).toLocaleDateString("es-ES") : "Sin sesiones programadas"} />
+        <StatCard label="Próximas sesiones" value={String(upcomingSessions.length)} detail={upcomingSessions[0] ? new Date(upcomingSessions[0].scheduled_at).toLocaleDateString("es-ES") : "Sin sesiones programadas"} />
         <StatCard label="Mensajes pendientes" value={String(unreadMessages)} detail="Sin leer en el chat" />
       </section>
 
       <section className="mt-6 rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-xl font-semibold">Requiere atencion</h2>
+          <h2 className="text-xl font-semibold">Requiere atención</h2>
           <span className="text-sm font-semibold text-[#64715f]">{attentionItems.length} alertas activas</span>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -226,7 +226,7 @@ export function DashboardClient() {
             </Link>
           </div>
           <div className="mt-5 grid gap-3">
-            {user?.role === "professional" && clients.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no hay clientes asignados.</p> : null}
+            {user?.role === "professional" && clients.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavía no hay clientes asignados.</p> : null}
             {user?.role === "professional" ? clients.slice(0, 3).map((client) => (
               <div key={client.id} className="grid gap-3 rounded-md bg-[#f7f5ef] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div>
@@ -236,7 +236,7 @@ export function DashboardClient() {
                 <span className="rounded-md bg-white px-3 py-1 text-sm font-semibold text-[#37513b]">ID #{client.id}</span>
               </div>
             )) : null}
-            {user?.role === "client" && plans.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no tienes planes asignados.</p> : null}
+            {user?.role === "client" && plans.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavía no tienes planes asignados.</p> : null}
             {user?.role === "client" ? plans.slice(0, 3).map((plan) => (
               <div key={plan.id} className="rounded-md bg-[#f7f5ef] p-4">
                 <p className="font-semibold">{plan.title}</p>
@@ -265,7 +265,7 @@ export function DashboardClient() {
 
       <section className="mt-6 rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Proximas sesiones</h2>
+          <h2 className="text-xl font-semibold">Próximas sesiones</h2>
           <Link href="/sessions" className="text-sm font-semibold text-[#c75432]">
             Ver agenda
           </Link>
@@ -288,7 +288,7 @@ export function DashboardClient() {
       <section className="mt-6 rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
         <h2 className="text-xl font-semibold">Planes activos</h2>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          {activePlans.length === 0 ? <p className="text-sm text-[#5d6959]">No hay planes activos todavia.</p> : null}
+          {activePlans.length === 0 ? <p className="text-sm text-[#5d6959]">No hay planes activos todavía.</p> : null}
           {activePlans.slice(0, 6).map((plan) => (
             <div key={plan.id} className="rounded-md border border-[#ece7dc] p-4">
               <p className="font-semibold">{plan.title}</p>

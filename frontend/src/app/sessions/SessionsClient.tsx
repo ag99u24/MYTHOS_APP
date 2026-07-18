@@ -189,16 +189,16 @@ export function SessionsClient() {
         const response = await apiRequest<{ session: Session }>(`/sessions/${selectedSession.id}`, { method: "PATCH", token, body: payload });
         setSessions((current) => current.map((session) => (session.id === response.session.id ? response.session : session)));
         setSelectedSession(response.session);
-        setSuccess("Sesion actualizada correctamente.");
+        setSuccess("Sesión actualizada correctamente.");
       } else {
         const response = await apiRequest<{ session: Session }>("/sessions", { method: "POST", token, body: payload });
         setSessions((current) => [response.session, ...current]);
         setPage(1);
         setSelectedSession(response.session);
-        setSuccess("Sesion creada correctamente.");
+        setSuccess("Sesión creada correctamente.");
       }
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "No se pudo guardar la sesion.");
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo guardar la sesión.");
     } finally {
       setIsSaving(false);
     }
@@ -212,9 +212,9 @@ export function SessionsClient() {
       await apiRequest<{ message: string }>(`/sessions/${sessionId}`, { method: "DELETE", token });
       setSessions((current) => current.filter((session) => session.id !== sessionId));
       if (selectedSession?.id === sessionId) resetForm();
-      setSuccess("Sesion eliminada correctamente.");
+      setSuccess("Sesión eliminada correctamente.");
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "No se pudo eliminar la sesion.");
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo eliminar la sesión.");
     }
   }
 
@@ -226,7 +226,7 @@ export function SessionsClient() {
       const response = await apiRequest<{ session: Session }>(`/sessions/${sessionId}`, { method: "PATCH", token, body: { status } });
       setSessions((current) => current.map((session) => (session.id === response.session.id ? response.session : session)));
       setSelectedSession((current) => (current?.id === response.session.id ? response.session : current));
-      setSuccess("Estado de sesion actualizado.");
+      setSuccess("Estado de sesión actualizado.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo actualizar el estado.");
     }
@@ -236,7 +236,7 @@ export function SessionsClient() {
     <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
       {user?.role === "professional" ? (
         <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-semibold">{selectedSession ? "Editar sesion" : "Crear sesion"}</h2>
+          <h2 className="text-xl font-semibold">{selectedSession ? "Editar sesión" : "Crear sesión"}</h2>
           <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
             {error ? <FormMessage type="error">{error}</FormMessage> : null}
             {success ? <FormMessage type="success">{success}</FormMessage> : null}
@@ -249,7 +249,7 @@ export function SessionsClient() {
               <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.session_type} onChange={(event) => updateField("session_type", event.target.value)}>
                 <option>Revision</option>
                 <option>Entrenamiento</option>
-                <option>Nutricion</option>
+                <option>Nutrición</option>
                 <option>Llamada</option>
               </select>
               <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.status} onChange={(event) => updateField("status", event.target.value)}>
@@ -265,7 +265,7 @@ export function SessionsClient() {
             <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="URL de reunion" value={form.meeting_url} onChange={(event) => updateField("meeting_url", event.target.value)} />
             <textarea className="min-h-24 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3" placeholder="Notas" value={form.notes} onChange={(event) => updateField("notes", event.target.value)} />
             <div className="flex flex-col gap-3 sm:flex-row">
-              <button disabled={isSaving} className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white disabled:opacity-70">{isSaving ? "Guardando..." : "Guardar sesion"}</button>
+              <button disabled={isSaving} className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white disabled:opacity-70">{isSaving ? "Guardando..." : "Guardar sesión"}</button>
               <button type="button" className="rounded-md border border-[#d9d4c7] px-4 py-3 font-semibold hover:bg-[#f7f5ef]" onClick={resetForm}>Limpiar</button>
             </div>
           </form>
@@ -293,7 +293,7 @@ export function SessionsClient() {
         </div>
         <div className="grid">
           {isLoading ? <p className="p-5 text-sm text-[#5d6959]">Cargando agenda...</p> : null}
-          {!isLoading && sessions.length === 0 ? <p className="p-5 text-sm text-[#5d6959]">Todavia no hay sesiones programadas.</p> : null}
+          {!isLoading && sessions.length === 0 ? <p className="p-5 text-sm text-[#5d6959]">Todavía no hay sesiones programadas.</p> : null}
           {sessions.map((session) => (
             <div key={session.id} className="grid gap-4 border-b border-[#ece7dc] p-5 last:border-b-0 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>

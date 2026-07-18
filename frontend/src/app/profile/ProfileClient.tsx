@@ -100,7 +100,7 @@ export function ProfileClient() {
     event.preventDefault();
 
     if (!token) {
-      setError("Inicia sesion para editar tu perfil.");
+      setError("Inicia sesión para editar tu perfil.");
       return;
     }
 
@@ -129,12 +129,12 @@ export function ProfileClient() {
     event.preventDefault();
 
     if (!token) {
-      setPasswordError("Inicia sesion para cambiar tu contrasena.");
+      setPasswordError("Inicia sesión para cambiar tu contraseña.");
       return;
     }
 
     if (passwordForm.new_password !== passwordForm.confirm_password) {
-      setPasswordError("La nueva contrasena no coincide.");
+      setPasswordError("La nueva contraseña no coincide.");
       setPasswordSuccess("");
       return;
     }
@@ -153,9 +153,9 @@ export function ProfileClient() {
         },
       });
       setPasswordForm(emptyPasswordForm);
-      setPasswordSuccess("Contrasena actualizada correctamente.");
+      setPasswordSuccess("Contraseña actualizada correctamente.");
     } catch (caughtError) {
-      setPasswordError(caughtError instanceof Error ? caughtError.message : "No se pudo cambiar la contrasena.");
+      setPasswordError(caughtError instanceof Error ? caughtError.message : "No se pudo cambiar la contraseña.");
     } finally {
       setIsChangingPassword(false);
     }
@@ -164,7 +164,7 @@ export function ProfileClient() {
   if (!token) {
     return (
       <section className="rounded-lg border border-[#d9d4c7] bg-white p-6 shadow-sm">
-        <FormMessage type="error">Inicia sesion para ver y editar tu perfil.</FormMessage>
+        <FormMessage type="error">Inicia sesión para ver y editar tu perfil.</FormMessage>
       </section>
     );
   }
@@ -205,7 +205,7 @@ export function ProfileClient() {
       </article>
 
       <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
-        <h2 className="text-xl font-semibold">Informacion de cuenta</h2>
+        <h2 className="text-xl font-semibold">Información de cuenta</h2>
         <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
           {error ? <FormMessage type="error">{error}</FormMessage> : null}
           {success ? <FormMessage type="success">{success}</FormMessage> : null}
@@ -269,7 +269,7 @@ export function ProfileClient() {
           {passwordError ? <FormMessage type="error">{passwordError}</FormMessage> : null}
           {passwordSuccess ? <FormMessage type="success">{passwordSuccess}</FormMessage> : null}
           <label className="grid gap-2 text-sm font-medium">
-            Contrasena actual
+            Contraseña actual
             <input
               className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
               required
@@ -279,7 +279,7 @@ export function ProfileClient() {
             />
           </label>
           <label className="grid gap-2 text-sm font-medium">
-            Nueva contrasena
+            Nueva contraseña
             <input
               className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
               minLength={8}
@@ -290,7 +290,7 @@ export function ProfileClient() {
             />
           </label>
           <label className="grid gap-2 text-sm font-medium">
-            Confirmar nueva contrasena
+            Confirmar nueva contraseña
             <input
               className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
               minLength={8}
@@ -304,7 +304,7 @@ export function ProfileClient() {
             disabled={isChangingPassword}
             className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white hover:bg-[#2c372f] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isChangingPassword ? "Actualizando..." : "Cambiar contrasena"}
+            {isChangingPassword ? "Actualizando..." : "Cambiar contraseña"}
           </button>
         </form>
       </article>

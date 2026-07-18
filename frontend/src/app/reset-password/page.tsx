@@ -6,8 +6,8 @@ import { ResetPasswordForm } from "./ResetPasswordForm";
 export default function ResetPasswordPage() {
   return (
     <AuthCard
-      title="Nueva contrasena"
-      description="Introduce el token recibido y define una nueva contrasena para tu cuenta."
+      title="Nueva contraseña"
+      description="Introduce el token recibido y define una nueva contraseña para tu cuenta."
       footer={
         <>
           Ya tienes acceso?{" "}

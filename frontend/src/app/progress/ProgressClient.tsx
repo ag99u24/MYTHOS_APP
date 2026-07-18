@@ -485,7 +485,7 @@ function TrackingHistory({ canManage, isLoading, progress, workouts, diet, onEdi
       </div>
       <div className="mt-5 grid gap-4">
         {isLoading ? <p className="text-sm text-[#5d6959]">Cargando seguimiento...</p> : null}
-        {!isLoading && timeline.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavia no hay registros.</p> : null}
+        {!isLoading && timeline.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavía no hay registros.</p> : null}
         {!isLoading && timeline.length > 0 && filteredTimeline.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">No hay registros para este filtro.</p> : null}
         {filteredTimeline.map((item) => <HistoryCard key={item.id} canManage={canManage} label={item.label} title={item.title} meta={item.meta} date={item.date} notes={item.notes} onEdit={() => onEdit({ kind: item.kind, entry: item.entry } as EditingEntry)} onDelete={() => void onDelete(item.kind, item.entry.id)} />)}
       </div>
