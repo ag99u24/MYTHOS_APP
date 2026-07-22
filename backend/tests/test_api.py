@@ -34,6 +34,14 @@ class ApiTestCase(unittest.TestCase):
     def auth_header(self, session):
         return {"Authorization": f"Bearer {session['access_token']}"}
 
+    def test_health_check_reports_database_status(self):
+        response = self.client.get("/api/health")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["service"], "mythos-api")
+        self.assertEqual(payload["checks"]["database"], "ok")
+
     def test_register_login_and_password_reset(self):
         invalid_register_response = self.client.post(
             "/api/auth/register",

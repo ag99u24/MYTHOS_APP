@@ -57,6 +57,8 @@ Despues del primer deploy:
 flask --app run.py db upgrade
 ```
 
+- [ ] Abrir `/api/health` y confirmar que `status` es `ok` y `checks.database` es `ok`.
+
 Opcional para demo:
 
 ```bash

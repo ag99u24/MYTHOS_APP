@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 
 from flask import Flask, jsonify
 from flask_cors import CORS
+from sqlalchemy import text
 
 from app.config import Config
 from app.extensions import db, jwt, migrate
@@ -37,7 +38,18 @@ def create_app(config_class=Config):
 
     @app.get("/api/health")
     def health_check():
-        return jsonify({"status": "ok", "service": "mythos-api"})
+        checks = {"database": "ok"}
+        status_code = 200
+
+        try:
+            db.session.execute(text("SELECT 1"))
+        except Exception:
+            db.session.rollback()
+            checks["database"] = "unavailable"
+            status_code = 503
+
+        status = "ok" if status_code == 200 else "degraded"
+        return jsonify({"status": status, "service": "mythos-api", "checks": checks}), status_code
 
     @app.errorhandler(400)
     def bad_request(error):

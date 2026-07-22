@@ -75,6 +75,7 @@ README.md
 
 ```bash
 cd backend
+cp .env.example .env
 python -m pip install -r requirements.txt
 flask --app run.py db upgrade
 flask --app run.py seed-demo
@@ -91,6 +92,7 @@ http://localhost:5000/api/health
 
 ```bash
 cd frontend
+cp .env.example .env.local
 npm install
 npm run dev
 ```
@@ -131,8 +133,8 @@ flask --app run.py seed-demo
 Backend local (`backend/.env`):
 
 ```txt
-SECRET_KEY=replace-me
-JWT_SECRET_KEY=replace-me-too
+SECRET_KEY=replace-me-with-a-long-random-secret
+JWT_SECRET_KEY=replace-me-with-a-different-long-random-secret
 DATABASE_URL=sqlite:///mythos.db
 FRONTEND_URL=http://localhost:3000
 FRONTEND_URLS=http://localhost:3000,http://localhost:3001,http://localhost:3002
@@ -205,6 +207,12 @@ Despues de desplegar el backend, aplica migraciones:
 
 ```bash
 flask --app run.py db upgrade
+```
+
+Comprueba que el backend esta vivo y conectado a la base de datos:
+
+```txt
+https://tu-backend.onrender.com/api/health
 ```
 
 Si quieres cargar demo en produccion para la defensa:
