@@ -5,6 +5,41 @@ from app.config import TestConfig
 from app.extensions import db
 
 
+class ConfigTestCase(unittest.TestCase):
+    def test_production_rejects_default_security_values(self):
+        class UnsafeProductionConfig(TestConfig):
+            TESTING = False
+            APP_ENV = "production"
+            SECRET_KEY = "dev-secret-change-me"
+            JWT_SECRET_KEY = "dev-jwt-secret-change-me"
+            JWT_COOKIE_SECURE = False
+            JWT_COOKIE_SAMESITE = "Lax"
+            ALLOW_RESET_TOKEN_RESPONSE = True
+
+        with self.assertRaises(RuntimeError) as context:
+            create_app(UnsafeProductionConfig)
+
+        message = str(context.exception)
+        self.assertIn("SECRET_KEY", message)
+        self.assertIn("JWT_SECRET_KEY", message)
+        self.assertIn("ALLOW_RESET_TOKEN_RESPONSE", message)
+        self.assertIn("JWT_COOKIE_SECURE", message)
+        self.assertIn("JWT_COOKIE_SAMESITE", message)
+
+    def test_production_accepts_secure_values(self):
+        class SafeProductionConfig(TestConfig):
+            TESTING = False
+            APP_ENV = "production"
+            SECRET_KEY = "secure-secret-key-with-more-than-enough-length"
+            JWT_SECRET_KEY = "secure-jwt-secret-with-more-than-enough-length"
+            JWT_COOKIE_SECURE = True
+            JWT_COOKIE_SAMESITE = "None"
+            ALLOW_RESET_TOKEN_RESPONSE = False
+
+        app = create_app(SafeProductionConfig)
+        self.assertEqual(app.config["APP_ENV"], "production")
+
+
 class ApiTestCase(unittest.TestCase):
     def setUp(self):
         self.app = create_app(TestConfig)
@@ -41,6 +76,13 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["service"], "mythos-api")
         self.assertEqual(payload["checks"]["database"], "ok")
+
+    def test_api_responses_include_security_headers(self):
+        response = self.client.get("/api/health")
+        self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(response.headers["X-Frame-Options"], "DENY")
+        self.assertEqual(response.headers["Referrer-Policy"], "strict-origin-when-cross-origin")
+        self.assertEqual(response.headers["Permissions-Policy"], "camera=(), microphone=(), geolocation=()")
 
     def test_register_login_and_password_reset(self):
         invalid_register_response = self.client.post(

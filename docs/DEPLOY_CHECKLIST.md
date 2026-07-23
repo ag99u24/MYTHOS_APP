@@ -39,6 +39,7 @@ startCommand: gunicorn run:app
 Variables en Render:
 
 ```txt
+APP_ENV=production
 SECRET_KEY
 JWT_SECRET_KEY
 DATABASE_URL
@@ -50,6 +51,9 @@ JWT_COOKIE_SECURE=true
 RESEND_API_KEY
 MAIL_FROM=Mythos <tu-email-verificado@tudominio.com>
 ```
+
+- [ ] Confirmar que `APP_ENV=production` esta configurado en Render.
+- [ ] Confirmar que `SECRET_KEY` y `JWT_SECRET_KEY` no usan valores de ejemplo.
 
 Despues del primer deploy:
 

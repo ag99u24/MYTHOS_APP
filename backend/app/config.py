@@ -14,7 +14,36 @@ def parse_origins(value):
     return [origin.strip() for origin in value.split(",") if origin.strip()]
 
 
+def validate_security_config(config):
+    if config.get("APP_ENV") != "production":
+        return
+
+    errors = []
+    default_values = {
+        "SECRET_KEY": {"dev-secret-change-me", "replace-me-with-a-long-random-secret"},
+        "JWT_SECRET_KEY": {"dev-jwt-secret-change-me", "replace-me-with-a-different-long-random-secret"},
+    }
+
+    for key, unsafe_values in default_values.items():
+        value = config.get(key)
+        if not value or value in unsafe_values or str(value).startswith("replace-me"):
+            errors.append(f"{key} must be configured with a real secret")
+
+    if config.get("ALLOW_RESET_TOKEN_RESPONSE"):
+        errors.append("ALLOW_RESET_TOKEN_RESPONSE must be false in production")
+
+    if not config.get("JWT_COOKIE_SECURE"):
+        errors.append("JWT_COOKIE_SECURE must be true in production")
+
+    if str(config.get("JWT_COOKIE_SAMESITE", "")).lower() != "none":
+        errors.append("JWT_COOKIE_SAMESITE must be None in production")
+
+    if errors:
+        raise RuntimeError("Invalid production configuration: " + "; ".join(errors))
+
+
 class Config:
+    APP_ENV = os.getenv("APP_ENV", "development").lower()
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret-change-me")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=8)
@@ -33,6 +62,7 @@ class Config:
 
 class TestConfig(Config):
     TESTING = True
+    APP_ENV = "test"
     SECRET_KEY = "test-secret-key-with-enough-length"
     JWT_SECRET_KEY = "test-jwt-secret-key-with-enough-length"
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"

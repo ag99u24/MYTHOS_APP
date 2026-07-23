@@ -4,7 +4,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from sqlalchemy import text
 
-from app.config import Config
+from app.config import Config, validate_security_config
 from app.extensions import db, jwt, migrate
 from app.routes.auth import auth_bp
 from app.routes.diet import diet_bp
@@ -20,6 +20,7 @@ from app.routes.workouts import workouts_bp
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+    validate_security_config(app.config)
 
     CORS(app, resources={r"/api/*": {"origins": app.config["FRONTEND_URLS"]}}, supports_credentials=True)
     db.init_app(app)
@@ -35,6 +36,14 @@ def create_app(config_class=Config):
     app.register_blueprint(nutrition_bp, url_prefix="/api/nutrition")
     app.register_blueprint(sessions_bp, url_prefix="/api/sessions")
     app.register_blueprint(messages_bp, url_prefix="/api/messages")
+
+    @app.after_request
+    def add_security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        return response
 
     @app.get("/api/health")
     def health_check():

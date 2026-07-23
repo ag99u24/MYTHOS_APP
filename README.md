@@ -133,6 +133,7 @@ flask --app run.py seed-demo
 Backend local (`backend/.env`):
 
 ```txt
+APP_ENV=development
 SECRET_KEY=replace-me-with-a-long-random-secret
 JWT_SECRET_KEY=replace-me-with-a-different-long-random-secret
 DATABASE_URL=sqlite:///mythos.db
@@ -191,6 +192,7 @@ El backend incluye:
 Variables necesarias en Render:
 
 ```txt
+APP_ENV=production
 SECRET_KEY
 JWT_SECRET_KEY
 DATABASE_URL
@@ -202,6 +204,8 @@ JWT_COOKIE_SECURE=true
 RESEND_API_KEY
 MAIL_FROM=Mythos <tu-email-verificado@tudominio.com>
 ```
+
+Con `APP_ENV=production`, el backend no arranca si los secretos siguen siendo valores de ejemplo, si las cookies no son seguras o si `ALLOW_RESET_TOKEN_RESPONSE` esta activo.
 
 Despues de desplegar el backend, aplica migraciones:
 
