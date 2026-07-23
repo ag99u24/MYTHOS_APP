@@ -54,7 +54,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = database_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    FRONTEND_URLS = parse_origins(os.getenv("FRONTEND_URLS", FRONTEND_URL))
+    FRONTEND_URLS = parse_origins(os.getenv("FRONTEND_URLS", f"{FRONTEND_URL},http://127.0.0.1:3000"))
     ALLOW_RESET_TOKEN_RESPONSE = os.getenv("ALLOW_RESET_TOKEN_RESPONSE", "true").lower() == "true"
     RESEND_API_KEY = os.getenv("RESEND_API_KEY")
     MAIL_FROM = os.getenv("MAIL_FROM", "Mythos <onboarding@resend.dev>")

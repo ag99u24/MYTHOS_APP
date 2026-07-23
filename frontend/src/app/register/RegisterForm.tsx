@@ -42,7 +42,7 @@ export function RegisterForm() {
   }
 
   return (
-    <form className="grid gap-4" onSubmit={handleSubmit}>
+    <form className="grid gap-4" method="post" onSubmit={handleSubmit}>
       {error ? <FormMessage type="error">{error}</FormMessage> : null}
       <FormField label="Nombre" name="name" placeholder="Alex Garcia" />
       <FormField label="Email" name="email" type="email" placeholder="tu@email.com" />

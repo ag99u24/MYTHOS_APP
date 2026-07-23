@@ -41,7 +41,7 @@ export function LoginForm() {
   }
 
   return (
-    <form className="grid gap-4" onSubmit={handleSubmit}>
+    <form className="grid gap-4" method="post" onSubmit={handleSubmit}>
       {error ? <FormMessage type="error">{error}</FormMessage> : null}
       <FormField label="Email" name="email" type="email" placeholder="tu@email.com" />
       <FormField label="Contraseña" name="password" type="password" placeholder="Tu contraseña" />

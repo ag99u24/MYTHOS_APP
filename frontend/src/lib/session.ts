@@ -18,7 +18,12 @@ const USER_KEY = "mythos_user";
 const COOKIE_SESSION_TOKEN = "cookie-session";
 
 export function saveSession(session: AuthResponse) {
-  window.localStorage.removeItem(TOKEN_KEY);
+  if (session.access_token) {
+    window.localStorage.setItem(TOKEN_KEY, session.access_token);
+  } else {
+    window.localStorage.removeItem(TOKEN_KEY);
+  }
+
   saveUser(session.user);
 }
 
