@@ -288,7 +288,8 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
         </div>
         <div className="flex flex-wrap gap-2">
           <Link className="rounded-md bg-[#18201b] px-3 py-2 text-sm font-semibold text-white hover:bg-[#2c372f]" href={`/messages?client_id=${client.id}`}>Chat</Link>
-          <Link className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" href={`/plans?client_id=${client.id}`}>Planes</Link>
+          <Link className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" href={`/training?client_id=${client.id}`}>Entrenamiento</Link>
+          <Link className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" href={`/nutrition-plans?client_id=${client.id}`}>Nutricion</Link>
           <Link className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" href={`/sessions?client_id=${client.id}`}>Agendar</Link>
           <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={onClose}>
             Cerrar ficha

@@ -221,7 +221,7 @@ export function DashboardClient() {
         <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">{user?.role === "professional" ? "Clientes recientes" : "Tus planes recientes"}</h2>
-            <Link href={user?.role === "professional" ? "/clients" : "/plans"} className="text-sm font-semibold text-[#c75432]">
+            <Link href={user?.role === "professional" ? "/clients" : "/training"} className="text-sm font-semibold text-[#c75432]">
               Ver todos
             </Link>
           </div>

@@ -48,6 +48,57 @@ type PlanFormState = {
   }>;
 };
 
+type PlanMode = "all" | "training" | "nutrition";
+
+type PlansClientProps = {
+  mode?: PlanMode;
+};
+
+const modeConfig = {
+  all: {
+    category: "",
+    listTitle: "Listado de planes",
+    emptyText: "Todavia no hay planes creados.",
+    createButton: "Crear plan",
+    formTitle: "Crear plan",
+    editTitle: "Editar plan",
+    successCreated: "Plan creado correctamente.",
+    blockTitle: "Bloques del plan",
+    addBlock: "Anadir bloque",
+    itemPlaceholder: "Actividad o comida",
+    detailsPlaceholder: "Detalles del bloque",
+    descriptionPlaceholder: "Descripcion del plan",
+  },
+  training: {
+    category: "Entrenamiento",
+    listTitle: "Planes de entrenamiento",
+    emptyText: "Todavia no hay entrenamientos asignados.",
+    createButton: "Asignar entrenamiento",
+    formTitle: "Asignar entrenamiento",
+    editTitle: "Editar entrenamiento",
+    successCreated: "Entrenamiento asignado correctamente.",
+    blockTitle: "Sesiones y ejercicios",
+    addBlock: "Anadir sesion",
+    itemPlaceholder: "Ejercicio o sesion",
+    detailsPlaceholder: "Series, repeticiones, descanso, intensidad...",
+    descriptionPlaceholder: "Objetivo del entrenamiento",
+  },
+  nutrition: {
+    category: "Nutricion",
+    listTitle: "Planes de nutricion",
+    emptyText: "Todavia no hay planes de nutricion asignados.",
+    createButton: "Asignar nutricion",
+    formTitle: "Asignar nutricion",
+    editTitle: "Editar nutricion",
+    successCreated: "Nutricion asignada correctamente.",
+    blockTitle: "Comidas y pautas",
+    addBlock: "Anadir comida",
+    itemPlaceholder: "Comida o pauta",
+    detailsPlaceholder: "Alimentos, cantidades, macros o recomendaciones...",
+    descriptionPlaceholder: "Objetivo nutricional",
+  },
+} satisfies Record<PlanMode, Record<string, string>>;
+
 const emptyForm: PlanFormState = {
   title: "",
   description: "",
@@ -59,7 +110,9 @@ const emptyForm: PlanFormState = {
   items: [{ day: "Lunes", title: "", details: "" }],
 };
 
-export function PlansClient() {
+export function PlansClient({ mode = "all" }: PlansClientProps) {
+  const config = modeConfig[mode];
+  const fixedCategory = config.category;
   const searchParams = useSearchParams();
   const initialClientId = searchParams.get("client_id") ?? "";
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -68,38 +121,30 @@ export function PlansClient() {
   const [plansMeta, setPlansMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState(fixedCategory);
   const [clientFilter, setClientFilter] = useState(initialClientId);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [form, setForm] = useState<PlanFormState>(() => ({ ...emptyForm, client_id: initialClientId }));
+  const [form, setForm] = useState<PlanFormState>(() => ({ ...emptyForm, category: fixedCategory || emptyForm.category, client_id: initialClientId }));
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
-
   const clientNameById = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
 
   const loadPlans = useCallback(async (activeToken = token) => {
-    if (!activeToken) {
-      return;
-    }
+    if (!activeToken) return;
 
     setIsLoading(true);
     setError("");
 
     try {
       const params = new URLSearchParams({ page: String(page), per_page: "10" });
-      if (statusFilter) {
-        params.set("status", statusFilter);
-      }
-      if (categoryFilter) {
-        params.set("category", categoryFilter);
-      }
-      if (clientFilter && user?.role === "professional") {
-        params.set("client_id", clientFilter);
-      }
+      const activeCategory = fixedCategory || categoryFilter;
+      if (statusFilter) params.set("status", statusFilter);
+      if (activeCategory) params.set("category", activeCategory);
+      if (clientFilter && user?.role === "professional") params.set("client_id", clientFilter);
 
       const response = await apiRequest<PlansResponse>(`/plans?${params.toString()}`, { token: activeToken });
       setPlans(response.plans);
@@ -109,12 +154,10 @@ export function PlansClient() {
     } finally {
       setIsLoading(false);
     }
-  }, [categoryFilter, clientFilter, page, statusFilter, token, user]);
+  }, [categoryFilter, clientFilter, fixedCategory, page, statusFilter, token, user]);
 
   const loadClients = useCallback(async (activeToken = token) => {
-    if (!activeToken) {
-      return;
-    }
+    if (!activeToken) return;
 
     try {
       const response = await apiRequest<{ clients: AuthUser[] }>("/users/clients", { token: activeToken });
@@ -129,15 +172,11 @@ export function PlansClient() {
   }, []);
 
   useEffect(() => {
-    if (token) {
-      void Promise.resolve().then(() => loadPlans(token));
-    }
+    if (token) void Promise.resolve().then(() => loadPlans(token));
   }, [loadPlans, token]);
 
   useEffect(() => {
-    if (token && user?.role === "professional") {
-      void Promise.resolve().then(() => loadClients(token));
-    }
+    if (token && user?.role === "professional") void Promise.resolve().then(() => loadClients(token));
   }, [loadClients, token, user?.role]);
 
   function updateField(field: keyof PlanFormState, value: string) {
@@ -157,18 +196,14 @@ export function PlansClient() {
       start_date: plan.start_date ?? "",
       end_date: plan.end_date ?? "",
       items: plan.items.length
-        ? plan.items.map((item) => ({
-            day: item.day,
-            title: item.title,
-            details: item.details ?? "",
-          }))
+        ? plan.items.map((item) => ({ day: item.day, title: item.title, details: item.details ?? "" }))
         : [{ day: "Lunes", title: "", details: "" }],
     });
   }
 
   function startNewPlan() {
     setSelectedPlan(null);
-    setForm({ ...emptyForm, client_id: clientFilter, items: [{ day: "Lunes", title: "", details: "" }] });
+    setForm({ ...emptyForm, category: fixedCategory || emptyForm.category, client_id: clientFilter, items: [{ day: "Lunes", title: "", details: "" }] });
     setSuccess("");
     setError("");
   }
@@ -181,10 +216,7 @@ export function PlansClient() {
   }
 
   function addItem() {
-    setForm((current) => ({
-      ...current,
-      items: [...current.items, { day: "General", title: "", details: "" }],
-    }));
+    setForm((current) => ({ ...current, items: [...current.items, { day: "General", title: "", details: "" }] }));
   }
 
   function removeItem(index: number) {
@@ -206,7 +238,7 @@ export function PlansClient() {
     event.preventDefault();
 
     if (!token) {
-      setError("Inicia sesión para gestionar planes.");
+      setError("Inicia sesion para gestionar planes.");
       return;
     }
 
@@ -222,7 +254,7 @@ export function PlansClient() {
     const payload = {
       title: form.title,
       description: form.description,
-      category: form.category,
+      category: fixedCategory || form.category,
       status: form.status,
       client_id: Number(form.client_id),
       start_date: form.start_date || null,
@@ -239,24 +271,16 @@ export function PlansClient() {
 
     try {
       if (selectedPlan) {
-        const response = await apiRequest<{ plan: Plan }>(`/plans/${selectedPlan.id}`, {
-          method: "PATCH",
-          body: payload,
-          token,
-        });
+        const response = await apiRequest<{ plan: Plan }>(`/plans/${selectedPlan.id}`, { method: "PATCH", body: payload, token });
         setPlans((current) => current.map((plan) => (plan.id === response.plan.id ? response.plan : plan)));
         setSelectedPlan(response.plan);
         setSuccess("Plan actualizado correctamente.");
       } else {
-        const response = await apiRequest<{ plan: Plan }>("/plans", {
-          method: "POST",
-          body: payload,
-          token,
-        });
+        const response = await apiRequest<{ plan: Plan }>("/plans", { method: "POST", body: payload, token });
         setPlans((current) => [response.plan, ...current]);
         setPage(1);
         setSelectedPlan(response.plan);
-        setSuccess("Plan creado correctamente.");
+        setSuccess(config.successCreated);
       }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo guardar el plan.");
@@ -267,7 +291,7 @@ export function PlansClient() {
 
   async function deletePlan(planId: number) {
     if (!token) {
-      setError("Inicia sesión para eliminar planes.");
+      setError("Inicia sesion para eliminar planes.");
       return;
     }
 
@@ -275,14 +299,9 @@ export function PlansClient() {
     setSuccess("");
 
     try {
-      await apiRequest<{ message: string }>(`/plans/${planId}`, {
-        method: "DELETE",
-        token,
-      });
+      await apiRequest<{ message: string }>(`/plans/${planId}`, { method: "DELETE", token });
       setPlans((current) => current.filter((plan) => plan.id !== planId));
-      if (selectedPlan?.id === planId) {
-        startNewPlan();
-      }
+      if (selectedPlan?.id === planId) startNewPlan();
       setSuccess("Plan eliminado correctamente.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo eliminar el plan.");
@@ -292,7 +311,7 @@ export function PlansClient() {
   if (!token) {
     return (
       <section className="rounded-lg border border-[#d9d4c7] bg-white p-6 shadow-sm">
-        <FormMessage type="error">Inicia sesión para gestionar planes reales.</FormMessage>
+        <FormMessage type="error">Inicia sesion para gestionar planes reales.</FormMessage>
       </section>
     );
   }
@@ -301,24 +320,27 @@ export function PlansClient() {
     <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
       <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-xl font-semibold">Listado de planes</h2>
+          <h2 className="text-xl font-semibold">{config.listTitle}</h2>
           <button className="rounded-md bg-[#c75432] px-4 py-2 text-sm font-semibold text-white hover:bg-[#a94529]" onClick={startNewPlan}>
-            Crear plan
+            {config.createButton}
           </button>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+
+        <div className={`mt-4 grid gap-3 ${fixedCategory ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
           <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={statusFilter} onChange={(event) => updateFilter(setStatusFilter, event.target.value)}>
             <option value="">Todos los estados</option>
             <option value="draft">Borradores</option>
             <option value="active">Activos</option>
             <option value="finished">Finalizados</option>
           </select>
-          <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={categoryFilter} onChange={(event) => updateFilter(setCategoryFilter, event.target.value)}>
-            <option value="">Todas las categorias</option>
-            <option value="Entrenamiento">Entrenamiento</option>
-            <option value="Nutricion">Nutrición</option>
-            <option value="Mixto">Mixto</option>
-          </select>
+          {!fixedCategory ? (
+            <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={categoryFilter} onChange={(event) => updateFilter(setCategoryFilter, event.target.value)}>
+              <option value="">Todas las categorias</option>
+              <option value="Entrenamiento">Entrenamiento</option>
+              <option value="Nutricion">Nutricion</option>
+              <option value="Mixto">Mixto</option>
+            </select>
+          ) : null}
           {user?.role === "professional" ? (
             <select className="h-10 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 text-sm" value={clientFilter} onChange={(event) => updateFilter(setClientFilter, event.target.value)}>
               <option value="">Todos los clientes</option>
@@ -333,9 +355,7 @@ export function PlansClient() {
 
         <div className="mt-5 grid gap-3">
           {isLoading ? <p className="text-sm text-[#5d6959]">Cargando planes...</p> : null}
-          {!isLoading && plans.length === 0 ? (
-            <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Todavía no hay planes creados.</p>
-          ) : null}
+          {!isLoading && plans.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">{config.emptyText}</p> : null}
           {plans.map((plan) => (
             <div key={plan.id} className="rounded-md border border-[#ece7dc] p-4">
               <div className="flex items-start justify-between gap-4">
@@ -365,92 +385,75 @@ export function PlansClient() {
       </article>
 
       {user?.role === "professional" ? (
-      <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
-        <h2 className="text-xl font-semibold">{selectedPlan ? "Editar plan" : "Crear plan"}</h2>
-        <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
-          {error ? <FormMessage type="error">{error}</FormMessage> : null}
-          {success ? <FormMessage type="success">{success}</FormMessage> : null}
-          <input
-            className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
-            placeholder="Titulo del plan"
-            required
-            value={form.title}
-            onChange={(event) => updateField("title", event.target.value)}
-          />
-          <div className="grid gap-4 md:grid-cols-3">
-            <select
-              className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
-              required
-              value={form.client_id}
-              onChange={(event) => updateField("client_id", event.target.value)}
-            >
-              <option value="">Seleccionar cliente</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-            <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.category} onChange={(event) => updateField("category", event.target.value)}>
-              <option>Entrenamiento</option>
-              <option>Nutrición</option>
-              <option>Mixto</option>
-            </select>
-            <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.status} onChange={(event) => updateField("status", event.target.value)}>
-              <option value="draft">Borrador</option>
-              <option value="active">Activo</option>
-              <option value="finished">Finalizado</option>
-            </select>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" type="date" value={form.start_date} onChange={(event) => updateField("start_date", event.target.value)} />
-            <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" type="date" value={form.end_date} onChange={(event) => updateField("end_date", event.target.value)} />
-          </div>
-          <textarea
-            className="min-h-24 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3"
-            placeholder="Descripción del plan"
-            value={form.description}
-            onChange={(event) => updateField("description", event.target.value)}
-          />
+        <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
+          <h2 className="text-xl font-semibold">{selectedPlan ? config.editTitle : config.formTitle}</h2>
+          <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
+            {error ? <FormMessage type="error">{error}</FormMessage> : null}
+            {success ? <FormMessage type="success">{success}</FormMessage> : null}
+            <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" placeholder="Titulo del plan" required value={form.title} onChange={(event) => updateField("title", event.target.value)} />
 
-          <div className="rounded-md bg-[#f7f5ef] p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="font-semibold">Bloques del plan</p>
-              <button type="button" className="rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#fbfaf7]" onClick={addItem}>
-                Añadir bloque
+            <div className={`grid gap-4 ${fixedCategory ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+              <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" required value={form.client_id} onChange={(event) => updateField("client_id", event.target.value)}>
+                <option value="">Seleccionar cliente</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+              {!fixedCategory ? (
+                <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.category} onChange={(event) => updateField("category", event.target.value)}>
+                  <option>Entrenamiento</option>
+                  <option>Nutricion</option>
+                  <option>Mixto</option>
+                </select>
+              ) : null}
+              <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.status} onChange={(event) => updateField("status", event.target.value)}>
+                <option value="draft">Borrador</option>
+                <option value="active">Activo</option>
+                <option value="finished">Finalizado</option>
+              </select>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" type="date" value={form.start_date} onChange={(event) => updateField("start_date", event.target.value)} />
+              <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" type="date" value={form.end_date} onChange={(event) => updateField("end_date", event.target.value)} />
+            </div>
+            <textarea className="min-h-24 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3" placeholder={config.descriptionPlaceholder} value={form.description} onChange={(event) => updateField("description", event.target.value)} />
+
+            <div className="rounded-md bg-[#f7f5ef] p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="font-semibold">{config.blockTitle}</p>
+                <button type="button" className="rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#fbfaf7]" onClick={addItem}>
+                  {config.addBlock}
+                </button>
+              </div>
+              <div className="mt-4 grid gap-4">
+                {form.items.map((item, index) => (
+                  <div key={`${item.day}-${index}`} className="rounded-md border border-[#d9d4c7] bg-white p-4">
+                    <div className="grid gap-4 md:grid-cols-[140px_1fr_auto]">
+                      <input className="h-11 rounded-md border border-[#d9d4c7] px-3" placeholder="Dia" value={item.day} onChange={(event) => updateItem(index, "day", event.target.value)} />
+                      <input className="h-11 rounded-md border border-[#d9d4c7] px-3" placeholder={config.itemPlaceholder} value={item.title} onChange={(event) => updateItem(index, "title", event.target.value)} />
+                      <button type="button" className="rounded-md border border-[#f1b5a4] px-3 py-2 text-sm font-semibold text-[#963519] hover:bg-[#fff4ef] disabled:opacity-50" disabled={form.items.length === 1} onClick={() => removeItem(index)}>
+                        Quitar
+                      </button>
+                    </div>
+                    <textarea className="mt-4 min-h-20 w-full rounded-md border border-[#d9d4c7] px-3 py-3" placeholder={config.detailsPlaceholder} value={item.details} onChange={(event) => updateItem(index, "details", event.target.value)} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button disabled={isSaving} className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white hover:bg-[#2c372f] disabled:cursor-not-allowed disabled:opacity-70">
+                {isSaving ? "Guardando..." : selectedPlan ? "Guardar cambios" : config.createButton}
+              </button>
+              <button type="button" className="rounded-md border border-[#d9d4c7] px-4 py-3 font-semibold hover:bg-[#f7f5ef]" onClick={startNewPlan}>
+                Limpiar
               </button>
             </div>
-            <div className="mt-4 grid gap-4">
-              {form.items.map((item, index) => (
-                <div key={index} className="rounded-md border border-[#d9d4c7] bg-white p-4">
-                  <div className="grid gap-4 md:grid-cols-[140px_1fr_auto]">
-                    <input className="h-11 rounded-md border border-[#d9d4c7] px-3" placeholder="Dia" value={item.day} onChange={(event) => updateItem(index, "day", event.target.value)} />
-                    <input className="h-11 rounded-md border border-[#d9d4c7] px-3" placeholder="Actividad o comida" value={item.title} onChange={(event) => updateItem(index, "title", event.target.value)} />
-                    <button type="button" className="rounded-md border border-[#f1b5a4] px-3 py-2 text-sm font-semibold text-[#963519] hover:bg-[#fff4ef] disabled:opacity-50" disabled={form.items.length === 1} onClick={() => removeItem(index)}>
-                      Quitar
-                    </button>
-                  </div>
-                  <textarea
-                    className="mt-4 min-h-20 w-full rounded-md border border-[#d9d4c7] px-3 py-3"
-                    placeholder="Detalles del bloque"
-                    value={item.details}
-                    onChange={(event) => updateItem(index, "details", event.target.value)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button disabled={isSaving} className="rounded-md bg-[#18201b] px-4 py-3 font-semibold text-white hover:bg-[#2c372f] disabled:cursor-not-allowed disabled:opacity-70">
-              {isSaving ? "Guardando..." : selectedPlan ? "Guardar cambios" : "Crear plan"}
-            </button>
-            <button type="button" className="rounded-md border border-[#d9d4c7] px-4 py-3 font-semibold hover:bg-[#f7f5ef]" onClick={startNewPlan}>
-              Limpiar
-            </button>
-          </div>
-        </form>
-      </article>
+          </form>
+        </article>
       ) : null}
     </section>
   );

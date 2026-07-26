@@ -11,11 +11,12 @@ import { SessionPanel } from "./SessionPanel";
 const navigation = [
   { href: "/dashboard", label: "Panel", icon: "P", roles: ["professional", "client"] },
   { href: "/clients", label: "Clientes", icon: "C", roles: ["professional"] },
-  { href: "/plans", label: "Planes", icon: "N", roles: ["professional", "client"] },
+  { href: "/training", label: "Entrenamiento", icon: "T", roles: ["professional", "client"] },
+  { href: "/nutrition-plans", label: "Nutricion", icon: "N", roles: ["professional", "client"] },
   { href: "/sessions", label: "Agenda", icon: "S", roles: ["professional", "client"] },
   { href: "/messages", label: "Chat", icon: "M", roles: ["professional", "client"] },
   { href: "/progress", label: "Progreso", icon: "G", roles: ["professional", "client"] },
-  { href: "/nutrition", label: "Nutrición", icon: "A", roles: ["professional", "client"] },
+  { href: "/nutrition", label: "Alimentos", icon: "A", roles: ["professional", "client"] },
   { href: "/status", label: "Estado", icon: "E", roles: ["professional", "client"] },
   { href: "/profile", label: "Perfil", icon: "U", roles: ["professional", "client"] },
 ];
