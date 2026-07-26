@@ -12,29 +12,39 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/dashboard";
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  function fillDemo(role: "professional" | "client") {
+    setError("");
+
+    if (role === "professional") {
+      setEmail("coach@mythos.demo");
+      setPassword("password123");
+      return;
+    }
+
+    setEmail("cliente@mythos.demo");
+    setPassword("password123");
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setIsLoading(true);
 
-    const formData = new FormData(event.currentTarget);
-
     try {
       const session = await apiRequest<AuthResponse>("/auth/login", {
         method: "POST",
-        body: {
-          email: formData.get("email"),
-          password: formData.get("password"),
-        },
+        body: { email, password },
       });
 
       saveSession(session);
       router.push(nextPath);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "No se pudo iniciar sesión.");
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo iniciar sesion.");
     } finally {
       setIsLoading(false);
     }
@@ -43,15 +53,26 @@ export function LoginForm() {
   return (
     <form className="grid gap-4" method="post" onSubmit={handleSubmit}>
       {error ? <FormMessage type="error">{error}</FormMessage> : null}
-      <FormField label="Email" name="email" type="email" placeholder="tu@email.com" />
-      <FormField label="Contraseña" name="password" type="password" placeholder="Tu contraseña" />
+
+      <div className="grid gap-3 rounded-md border border-[#d9d4c7] bg-[#f7f5ef] p-3 sm:grid-cols-2">
+        <button type="button" className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-[#18201b] hover:bg-[#edf4e9]" onClick={() => fillDemo("professional")}>
+          Demo profesional
+        </button>
+        <button type="button" className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-[#18201b] hover:bg-[#edf4e9]" onClick={() => fillDemo("client")}>
+          Demo cliente
+        </button>
+      </div>
+
+      <FormField label="Email" name="email" type="email" placeholder="tu@email.com" value={email} onChange={(event) => setEmail(event.target.value)} />
+      <FormField label="Contrasena" name="password" type="password" placeholder="Tu contrasena" value={password} onChange={(event) => setPassword(event.target.value)} />
+
       <div className="flex items-center justify-between text-sm">
         <label className="flex items-center gap-2 text-[#5d6959]">
           <input type="checkbox" className="size-4 rounded border-[#d9d4c7]" />
           Recordarme
         </label>
         <Link href="/forgot-password" className="font-semibold text-[#c75432]">
-          Recuperar contraseña
+          Recuperar contrasena
         </Link>
       </div>
       <button
