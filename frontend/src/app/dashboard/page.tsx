@@ -5,11 +5,11 @@ import { DashboardClient } from "./DashboardClient";
 export default function DashboardPage() {
   return (
     <AppShell
-      title="Panel profesional"
-      description="Resumen operativo para controlar clientes, planes y revisiones pendientes."
+      title="Panel de control"
+      description="Resumen operativo de planes, seguimiento, sesiones y mensajes."
       action={
-        <Link href="/training" className="rounded-md bg-[#c75432] px-4 py-3 text-center font-semibold text-white hover:bg-[#a94529]">
-          Nuevo entrenamiento
+        <Link href="/training" className="rounded-md bg-[#a30000] px-4 py-3 text-center font-semibold text-white hover:bg-[#8b0000]">
+          Agregar entrenamiento
         </Link>
       }
     >

@@ -73,8 +73,8 @@ const modeConfig = {
     category: "Entrenamiento",
     listTitle: "Planes de entrenamiento",
     emptyText: "Todavia no hay entrenamientos asignados.",
-    createButton: "Asignar entrenamiento",
-    formTitle: "Asignar entrenamiento",
+    createButton: "Agregar entrenamiento",
+    formTitle: "Agregar entrenamiento",
     editTitle: "Editar entrenamiento",
     successCreated: "Entrenamiento asignado correctamente.",
     blockTitle: "Sesiones y ejercicios",
@@ -87,8 +87,8 @@ const modeConfig = {
     category: "Nutricion",
     listTitle: "Planes de nutricion",
     emptyText: "Todavia no hay planes de nutricion asignados.",
-    createButton: "Asignar nutricion",
-    formTitle: "Asignar nutricion",
+    createButton: "Agregar dieta",
+    formTitle: "Agregar dieta",
     editTitle: "Editar nutricion",
     successCreated: "Nutricion asignada correctamente.",
     blockTitle: "Comidas y pautas",
@@ -321,9 +321,11 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
       <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold">{config.listTitle}</h2>
-          <button className="rounded-md bg-[#c75432] px-4 py-2 text-sm font-semibold text-white hover:bg-[#a94529]" onClick={startNewPlan}>
-            {config.createButton}
-          </button>
+          {user?.role === "professional" ? (
+            <button className="rounded-md bg-[#a30000] px-4 py-2 text-sm font-semibold text-white hover:bg-[#8b0000]" onClick={startNewPlan}>
+              {config.createButton}
+            </button>
+          ) : null}
         </div>
 
         <div className={`mt-4 grid gap-3 ${fixedCategory ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
@@ -370,14 +372,16 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                 <span>{plan.start_date ?? "Sin fecha"}</span>
                 <span>{plan.items.length} bloques</span>
               </div>
-              <div className="mt-4 flex gap-2">
-                <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={() => selectPlan(plan)}>
-                  Editar
-                </button>
-                <button className="rounded-md border border-[#f1b5a4] px-3 py-2 text-sm font-semibold text-[#963519] hover:bg-[#fff4ef]" onClick={() => deletePlan(plan.id)}>
-                  Eliminar
-                </button>
-              </div>
+              {user?.role === "professional" ? (
+                <div className="mt-4 flex gap-2">
+                  <button className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={() => selectPlan(plan)}>
+                    Editar
+                  </button>
+                  <button className="rounded-md border border-[#f1b5a4] px-3 py-2 text-sm font-semibold text-[#963519] hover:bg-[#fff4ef]" onClick={() => deletePlan(plan.id)}>
+                    Eliminar
+                  </button>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
