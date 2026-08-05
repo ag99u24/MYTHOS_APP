@@ -175,9 +175,16 @@ El proyecto incluye GitHub Actions en `.github/workflows/ci.yml` para ejecutar c
 
 Arquitectura recomendada para el proyecto final:
 
-- Frontend: Vercel.
-- Backend: Render.
-- Base de datos: PostgreSQL en Render.
+- Frontend: Netlify o Vercel.
+- Backend: DigitalOcean App Platform o Render.
+- Base de datos: PostgreSQL en DigitalOcean o Render.
+- Dominio y proteccion DNS: Cloudflare.
+
+Para el flujo Netlify + DigitalOcean + Cloudflare, revisa:
+
+```txt
+docs/deploy-netlify-digitalocean-cloudflare.md
+```
 
 ### Backend en Render
 
