@@ -207,10 +207,10 @@ MAIL_FROM=Mythos <tu-email-verificado@tudominio.com>
 
 Con `APP_ENV=production`, el backend no arranca si los secretos siguen siendo valores de ejemplo, si las cookies no son seguras o si `ALLOW_RESET_TOKEN_RESPONSE` esta activo.
 
-Despues de desplegar el backend, aplica migraciones:
+El comando de arranque de produccion ejecuta migraciones antes de levantar la API:
 
 ```bash
-flask --app run.py db upgrade
+flask --app run.py db upgrade && gunicorn run:app
 ```
 
 Comprueba que el backend esta vivo y conectado a la base de datos:
@@ -224,6 +224,8 @@ Si quieres cargar demo en produccion para la defensa:
 ```bash
 flask --app run.py seed-demo
 ```
+
+Para una prueba con un usuario real, no ejecutes `seed-demo`; crea la cuenta desde el registro publico de la app.
 
 ### Frontend en Vercel
 
@@ -244,6 +246,15 @@ Build command:
 ```bash
 npm run build
 ```
+
+Cuando Vercel genere la URL final del frontend, vuelve a Render y actualiza:
+
+```txt
+FRONTEND_URL=https://tu-frontend.vercel.app
+FRONTEND_URLS=https://tu-frontend.vercel.app
+```
+
+Despues redepliega el backend para que CORS acepte peticiones desde Vercel.
 
 ## Flujo recomendado para la demo
 
