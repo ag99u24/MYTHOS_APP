@@ -18,7 +18,6 @@ const navigation = [
   { href: "/messages", label: "Chat", icon: "💬", roles: ["professional", "client"] },
   { href: "/progress", label: "Progreso", icon: "📈", roles: ["professional", "client"] },
   { href: "/nutrition", label: "Alimentos", icon: "🔎", roles: ["professional", "client"] },
-  { href: "/status", label: "Estado", icon: "🛡️", roles: ["professional", "client"] },
   { href: "/profile", label: "Perfil", icon: "👤", roles: ["professional", "client"] },
 ];
 
