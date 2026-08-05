@@ -85,7 +85,7 @@ python run.py
 Backend local:
 
 ```txt
-http://localhost:5000/api/health
+http://127.0.0.1:5000/api/health
 ```
 
 ### Frontend
@@ -149,7 +149,7 @@ MAIL_FROM=Mythos <onboarding@resend.dev>
 Frontend local (`frontend/.env.local`):
 
 ```txt
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
+NEXT_PUBLIC_API_URL=http://127.0.0.1:5000/api
 ```
 
 ## Calidad

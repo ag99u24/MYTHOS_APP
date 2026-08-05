@@ -1,4 +1,6 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
+const rawApiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5000/api";
+
+export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, "");
 const COOKIE_SESSION_TOKEN = "cookie-session";
 
 type ApiRequestOptions = {
