@@ -46,16 +46,28 @@ export function AppShell({ title, description, allowedRoles, action, children }:
   return (
     <PrivateRoute allowedRoles={allowedRoles}>
       <main className="min-h-screen bg-[#f8f6f0] text-[#0b0c10]">
-        <div className="grid min-h-screen lg:grid-cols-[260px_1fr]">
-          <aside className="border-b border-[#d9d4c7] bg-white px-5 py-5 lg:border-b-0 lg:border-r">
+        <div className="grid min-h-screen lg:grid-cols-[1fr_292px]">
+          <section className="px-5 py-6 sm:px-8 lg:px-10">
+            <header className="flex flex-col gap-4 border-b border-[#d9d4c7] pb-6 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#a30000]">Mythos App</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-normal sm:text-4xl">{title}</h1>
+                <p className="mt-3 max-w-2xl leading-7 text-[#4f5d75]">{description}</p>
+              </div>
+              {visibleAction}
+            </header>
+            <div className="py-6">{children}</div>
+          </section>
+
+          <aside className="order-first border-b border-[#d9d4c7] bg-[#0b0c10] px-5 py-5 text-white shadow-xl lg:order-last lg:border-b-0 lg:border-l lg:border-[#c5a059]/30">
             <div className="flex items-center justify-between lg:block">
               <Link href="/" className="flex items-center gap-3 text-xl font-semibold">
-                <span className="flex size-11 items-center justify-center rounded-md border border-[#c5a059] bg-[#0b0c10] p-2">
-                  <Image src="/mythos-logo.png" alt="Mythos" width={28} height={40} className="h-8 w-auto invert" priority />
+                <span className="flex size-11 items-center justify-center rounded-md border border-[#c5a059] bg-white p-2">
+                  <Image src="/mythos-logo.png" alt="Mythos" width={28} height={40} className="h-8 w-auto" priority />
                 </span>
                 <span>Mythos</span>
               </Link>
-              <span className="rounded-md bg-[#f8f6f0] px-3 py-1 text-sm font-semibold text-[#1f2833] ring-1 ring-[#c5a059] lg:mt-4 lg:inline-flex">
+              <span className="rounded-md bg-white/10 px-3 py-1 text-sm font-semibold text-[#f8f6f0] ring-1 ring-[#c5a059]/60 lg:mt-4 lg:inline-flex">
                 {roleLabel}
               </span>
             </div>
@@ -64,10 +76,10 @@ export function AppShell({ title, description, allowedRoles, action, children }:
               type="button"
               onClick={() => setIsMenuOpen((current) => !current)}
               aria-expanded={isMenuOpen}
-              className="mt-5 flex w-full items-center justify-between rounded-md border border-[#c5a059] bg-[#f8f6f0] px-4 py-3 text-sm font-semibold text-[#0b0c10] lg:hidden"
+              className="mt-5 flex w-full items-center justify-between rounded-md border border-[#c5a059]/70 bg-white/10 px-4 py-3 text-sm font-semibold text-white lg:hidden"
             >
               <span className="flex items-center gap-3">
-                <span className="flex size-7 items-center justify-center rounded-md bg-white">{activeNavigation?.icon ?? "\u{1F9ED}"}</span>
+                <span className="flex size-7 items-center justify-center rounded-md bg-white text-[#0b0c10]">{activeNavigation?.icon ?? "\u{1F9ED}"}</span>
                 {activeNavigation?.label ?? "Menu"}
               </span>
               <span className="text-lg leading-none">{isMenuOpen ? "\u{2303}" : "\u{2304}"}</span>
@@ -85,18 +97,6 @@ export function AppShell({ title, description, allowedRoles, action, children }:
             </nav>
             <SessionPanel />
           </aside>
-
-          <section className="px-5 py-6 sm:px-8 lg:px-10">
-            <header className="flex flex-col gap-4 border-b border-[#d9d4c7] pb-6 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-[#a30000]">Mythos App</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-normal sm:text-4xl">{title}</h1>
-                <p className="mt-3 max-w-2xl leading-7 text-[#4f5d75]">{description}</p>
-              </div>
-              {visibleAction}
-            </header>
-            <div className="py-6">{children}</div>
-          </section>
         </div>
       </main>
     </PrivateRoute>
@@ -109,13 +109,13 @@ function NavigationLink({ item, isActive, onNavigate }: { item: (typeof navigati
       href={item.href}
       onClick={onNavigate}
       aria-current={isActive ? "page" : undefined}
-      className={`flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm font-semibold ${
+      className={`flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm font-semibold transition ${
         isActive
-          ? "border-[#c5a059] bg-[#0b0c10] text-white"
-          : "border-transparent text-[#1f2833] hover:border-[#c5a059] hover:bg-[#f8f6f0]"
+          ? "border-[#c5a059] bg-[#a30000] text-white shadow-lg shadow-black/20"
+          : "border-transparent text-[#f8f6f0] hover:border-[#c5a059]/60 hover:bg-white/10"
       }`}
     >
-      <span className={`flex size-7 items-center justify-center rounded-md text-sm ${isActive ? "bg-[#a30000] text-white" : "bg-[#f8f6f0]"}`}>{item.icon}</span>
+      <span className={`flex size-7 items-center justify-center rounded-md text-sm ${isActive ? "bg-white text-[#0b0c10]" : "bg-white/10 text-white"}`}>{item.icon}</span>
       <span>{item.label}</span>
     </Link>
   );
