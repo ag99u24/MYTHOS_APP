@@ -186,6 +186,12 @@ Para el flujo Netlify + DigitalOcean + Cloudflare, revisa:
 docs/deploy-netlify-digitalocean-cloudflare.md
 ```
 
+Para configurar el correo de recuperacion de contrasena, revisa:
+
+```txt
+docs/configurar-correo-resend.md
+```
+
 ### Backend en Render
 
 El backend incluye:
