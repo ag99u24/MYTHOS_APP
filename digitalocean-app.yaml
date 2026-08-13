@@ -1,0 +1,61 @@
+name: mythos-app
+region: ams
+
+services:
+  - name: mythos-api
+    environment_slug: python
+    source_dir: backend
+    github:
+      repo: ag99u24/MYTHOS_APP
+      branch: alex
+      deploy_on_push: true
+    build_command: pip install -r requirements.txt
+    run_command: flask --app run.py db upgrade && gunicorn --bind 0.0.0.0:8080 run:app
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    routes:
+      - path: /
+    envs:
+      - key: APP_ENV
+        value: production
+        scope: RUN_TIME
+      - key: SECRET_KEY
+        value: replace-me-with-a-real-secret-before-deploy
+        scope: RUN_TIME
+        type: SECRET
+      - key: JWT_SECRET_KEY
+        value: replace-me-with-a-different-real-secret-before-deploy
+        scope: RUN_TIME
+        type: SECRET
+      - key: DATABASE_URL
+        value: ${mythos-db.DATABASE_URL}
+        scope: RUN_TIME
+      - key: FRONTEND_URL
+        value: https://replace-with-your-netlify-domain.netlify.app
+        scope: RUN_TIME
+      - key: FRONTEND_URLS
+        value: https://replace-with-your-netlify-domain.netlify.app
+        scope: RUN_TIME
+      - key: ALLOW_RESET_TOKEN_RESPONSE
+        value: "false"
+        scope: RUN_TIME
+      - key: JWT_COOKIE_SAMESITE
+        value: None
+        scope: RUN_TIME
+      - key: JWT_COOKIE_SECURE
+        value: "true"
+        scope: RUN_TIME
+      - key: RESEND_API_KEY
+        value: replace-with-resend-key-if-password-reset-is-needed
+        scope: RUN_TIME
+        type: SECRET
+      - key: MAIL_FROM
+        value: Mythos <onboarding@resend.dev>
+        scope: RUN_TIME
+
+databases:
+  - name: mythos-db
+    engine: PG
+    version: "16"
+    production: false

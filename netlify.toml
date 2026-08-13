@@ -1,0 +1,12 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[headers]]
+  for = "/mythos-logo.png"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
