@@ -132,6 +132,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
   const clientNameById = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
+  const readablePlan = selectedPlan ?? (user?.role === "client" ? plans[0] ?? null : null);
 
   const loadPlans = useCallback(async (activeToken = token) => {
     if (!activeToken) return;
@@ -458,7 +459,62 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
             </div>
           </form>
         </article>
-      ) : null}
+      ) : (
+        <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
+          {readablePlan ? (
+            <>
+              <div className="flex flex-col gap-3 border-b border-[#ece7dc] pb-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-[#a30000]">{readablePlan.category}</p>
+                  <h2 className="mt-1 text-2xl font-semibold">{readablePlan.title}</h2>
+                  {readablePlan.description ? <p className="mt-3 leading-7 text-[#4f5d75]">{readablePlan.description}</p> : null}
+                </div>
+                <span className="rounded-md bg-[#f7f5ef] px-3 py-1 text-sm font-semibold">{readablePlan.status}</span>
+              </div>
+
+              <div className="mt-4 grid gap-3 text-sm text-[#5d6959] sm:grid-cols-3">
+                <div className="rounded-md bg-[#f7f5ef] p-3">
+                  <p className="font-semibold text-[#18201b]">Inicio</p>
+                  <p className="mt-1">{readablePlan.start_date ?? "Sin fecha"}</p>
+                </div>
+                <div className="rounded-md bg-[#f7f5ef] p-3">
+                  <p className="font-semibold text-[#18201b]">Fin</p>
+                  <p className="mt-1">{readablePlan.end_date ?? "Sin fecha"}</p>
+                </div>
+                <div className="rounded-md bg-[#f7f5ef] p-3">
+                  <p className="font-semibold text-[#18201b]">Contenido</p>
+                  <p className="mt-1">{readablePlan.items.length} bloques</p>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold">{config.blockTitle}</h3>
+                <div className="mt-4 grid gap-3">
+                  {readablePlan.items.length === 0 ? (
+                    <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">Este plan aun no tiene bloques detallados.</p>
+                  ) : null}
+                  {readablePlan.items.map((item, index) => (
+                    <div key={item.id ?? `${item.day}-${index}`} className="rounded-md border border-[#ece7dc] bg-[#fbfaf7] p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-[#a30000]">{item.day}</p>
+                          <h4 className="mt-1 text-lg font-semibold">{item.title}</h4>
+                        </div>
+                        <span className="rounded-md bg-white px-3 py-1 text-xs font-semibold text-[#4f5d75]">Bloque {index + 1}</span>
+                      </div>
+                      {item.details ? <p className="mt-3 whitespace-pre-line leading-7 text-[#3d493f]">{item.details}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-md bg-[#f7f5ef] p-5 text-sm text-[#5d6959]">
+              Selecciona un plan para ver todos sus detalles.
+            </div>
+          )}
+        </article>
+      )}
     </section>
   );
 }
