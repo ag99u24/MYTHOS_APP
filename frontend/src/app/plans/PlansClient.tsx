@@ -58,6 +58,9 @@ const modeConfig = {
   all: {
     category: "",
     listTitle: "Listado de planes",
+    clientListTitle: "Mis planes",
+    clientIntro: "Consulta los planes que tu profesional ha preparado para ti.",
+    clientDetailTitle: "Detalle del plan",
     emptyText: "Todavia no hay planes creados.",
     createButton: "Crear plan",
     formTitle: "Crear plan",
@@ -72,6 +75,9 @@ const modeConfig = {
   training: {
     category: "Entrenamiento",
     listTitle: "Planes de entrenamiento",
+    clientListTitle: "Mis entrenamientos",
+    clientIntro: "Consulta tus rutinas, sesiones y ejercicios asignados.",
+    clientDetailTitle: "Entrenamiento asignado",
     emptyText: "Todavia no hay entrenamientos asignados.",
     createButton: "Agregar entrenamiento",
     formTitle: "Agregar entrenamiento",
@@ -86,6 +92,9 @@ const modeConfig = {
   nutrition: {
     category: "Nutricion",
     listTitle: "Planes de nutricion",
+    clientListTitle: "Mi dieta",
+    clientIntro: "Consulta tus comidas, pautas y recomendaciones nutricionales.",
+    clientDetailTitle: "Dieta asignada",
     emptyText: "Todavia no hay planes de nutricion asignados.",
     createButton: "Agregar dieta",
     formTitle: "Agregar dieta",
@@ -132,6 +141,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
   const clientNameById = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
+  const isClient = user?.role === "client";
   const readablePlan = selectedPlan ?? (user?.role === "client" ? plans[0] ?? null : null);
 
   const loadPlans = useCallback(async (activeToken = token) => {
@@ -318,10 +328,13 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
   }
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+    <section className={`grid gap-6 ${isClient ? "xl:grid-cols-[0.82fr_1.18fr]" : "xl:grid-cols-[0.95fr_1.05fr]"}`}>
       <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-xl font-semibold">{config.listTitle}</h2>
+          <div>
+            <h2 className="text-xl font-semibold">{isClient ? config.clientListTitle : config.listTitle}</h2>
+            {isClient ? <p className="mt-2 text-sm leading-6 text-[#5d6959]">{config.clientIntro}</p> : null}
+          </div>
           {user?.role === "professional" ? (
             <button className="rounded-md bg-[#a30000] px-4 py-2 text-sm font-semibold text-white hover:bg-[#8b0000]" onClick={startNewPlan}>
               {config.createButton}
@@ -360,11 +373,13 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
           {isLoading ? <p className="text-sm text-[#5d6959]">Cargando planes...</p> : null}
           {!isLoading && plans.length === 0 ? <p className="rounded-md bg-[#f7f5ef] p-4 text-sm text-[#5d6959]">{config.emptyText}</p> : null}
           {plans.map((plan) => (
-            <div key={plan.id} className="rounded-md border border-[#ece7dc] p-4">
+            <div key={plan.id} className={`rounded-md border p-4 ${isClient && readablePlan?.id === plan.id ? "border-[#c5a059] bg-[#fbfaf7]" : "border-[#ece7dc]"}`}>
               <div className="flex items-start justify-between gap-4">
                 <button className="text-left" onClick={() => selectPlan(plan)}>
                   <p className="font-semibold">{plan.title}</p>
-                  <p className="mt-1 text-sm text-[#5d6959]">{clientNameById.get(plan.client_id) ?? `Cliente #${plan.client_id}`}</p>
+                  <p className="mt-1 text-sm text-[#5d6959]">
+                    {isClient ? "Asignado por tu profesional" : clientNameById.get(plan.client_id) ?? `Cliente #${plan.client_id}`}
+                  </p>
                 </button>
                 <span className="rounded-md bg-[#f7f5ef] px-3 py-1 text-sm font-semibold">{plan.status}</span>
               </div>
@@ -382,7 +397,11 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                     Eliminar
                   </button>
                 </div>
-              ) : null}
+              ) : (
+                <button className="mt-4 rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-white" onClick={() => selectPlan(plan)}>
+                  Ver detalle
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -465,7 +484,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
             <>
               <div className="flex flex-col gap-3 border-b border-[#ece7dc] pb-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-[#a30000]">{readablePlan.category}</p>
+                  <p className="text-sm font-semibold text-[#a30000]">{config.clientDetailTitle}</p>
                   <h2 className="mt-1 text-2xl font-semibold">{readablePlan.title}</h2>
                   {readablePlan.description ? <p className="mt-3 leading-7 text-[#4f5d75]">{readablePlan.description}</p> : null}
                 </div>
