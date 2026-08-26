@@ -12,6 +12,7 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/dashboard";
+  const sessionExpired = searchParams.get("expired") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -52,6 +53,7 @@ export function LoginForm() {
 
   return (
     <form className="grid gap-4" method="post" onSubmit={handleSubmit}>
+      {sessionExpired && !error ? <FormMessage type="success">Tu sesión caducó. Inicia sesión de nuevo para continuar.</FormMessage> : null}
       {error ? <FormMessage type="error">{error}</FormMessage> : null}
 
       <div className="grid gap-3 rounded-md border border-[#d9d4c7] bg-[#f7f5ef] p-3 sm:grid-cols-2">

@@ -1,7 +1,10 @@
+import { clearSession } from "@/lib/session";
+
 const rawApiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5000/api";
 
 export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, "");
 const COOKIE_SESSION_TOKEN = "cookie-session";
+const PUBLIC_AUTH_PATHS = new Set(["/auth/login", "/auth/register", "/auth/forgot-password", "/auth/reset-password"]);
 
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
@@ -27,6 +30,21 @@ function getFallbackMessage(status: number) {
   return "No se pudo completar la solicitud.";
 }
 
+function redirectToLoginAfterExpiredSession(path: string) {
+  if (typeof window === "undefined") return;
+
+  const endpoint = path.split("?")[0];
+  if (PUBLIC_AUTH_PATHS.has(endpoint) || window.location.pathname === "/login") return;
+
+  clearSession();
+
+  const currentPath = `${window.location.pathname}${window.location.search}`;
+  const params = new URLSearchParams({ expired: "1" });
+  if (currentPath) params.set("next", currentPath);
+
+  window.location.assign(`/login?${params.toString()}`);
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   let response: Response;
 
@@ -47,6 +65,10 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (response.status === 401) {
+      redirectToLoginAfterExpiredSession(path);
+    }
+
     throw new ApiError(data.message ?? getFallbackMessage(response.status), response.status);
   }
 
