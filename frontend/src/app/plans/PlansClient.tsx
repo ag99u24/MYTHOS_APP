@@ -33,6 +33,19 @@ type PlansResponse = {
   meta?: PaginationMeta;
 };
 
+type WorkoutEntry = {
+  id: number;
+  plan_item_id?: number | null;
+  sets_completed?: number | null;
+  reps_completed?: number | null;
+};
+
+type DietEntry = {
+  id: number;
+  plan_item_id?: number | null;
+  consumed_food?: string | null;
+};
+
 type PlanFormState = {
   title: string;
   description: string;
@@ -138,6 +151,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [trackingItemId, setTrackingItemId] = useState<number | null>(null);
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
   const clientNameById = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
@@ -290,7 +304,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
       status: form.status,
       client_id: Number(form.client_id),
       start_date: form.start_date || null,
-      end_date: form.end_date || null,
+      end_date: null,
       items: planItems,
     };
 
@@ -313,6 +327,71 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo guardar el plan.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleWorkoutTracking(event: React.FormEvent<HTMLFormElement>, item: PlanItem) {
+    event.preventDefault();
+    if (!token || !item.id) return;
+
+    const formData = new FormData(event.currentTarget);
+    setTrackingItemId(item.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest<{ workout: WorkoutEntry }>("/workouts", {
+        method: "POST",
+        token,
+        body: {
+          plan_item_id: item.id,
+          title: item.title,
+          workout_type: "Plan asignado",
+          sets_completed: formData.get("sets_completed") ? Number(formData.get("sets_completed")) : null,
+          reps_completed: formData.get("reps_completed") ? Number(formData.get("reps_completed")) : null,
+          intensity: String(formData.get("intensity") || "") || null,
+          notes: String(formData.get("notes") || "") || null,
+        },
+      });
+      event.currentTarget.reset();
+      setSuccess("Entrenamiento registrado correctamente.");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo registrar el entrenamiento.");
+    } finally {
+      setTrackingItemId(null);
+    }
+  }
+
+  async function handleDietTracking(event: React.FormEvent<HTMLFormElement>, item: PlanItem) {
+    event.preventDefault();
+    if (!token || !item.id) return;
+
+    const formData = new FormData(event.currentTarget);
+    setTrackingItemId(item.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest<{ diet: DietEntry }>("/diet", {
+        method: "POST",
+        token,
+        body: {
+          plan_item_id: item.id,
+          recommended_meal: item.title,
+          consumed_food: String(formData.get("consumed_food") || ""),
+          adherence_percentage: formData.get("adherence_percentage") ? Number(formData.get("adherence_percentage")) : 100,
+          meals_completed: formData.get("consumed_food") ? 1 : null,
+          total_meals: readablePlan?.items.length ?? null,
+          water_liters: formData.get("water_liters") ? Number(formData.get("water_liters")) : null,
+          notes: String(formData.get("notes") || "") || null,
+        },
+      });
+      event.currentTarget.reset();
+      setSuccess("Comida registrada correctamente.");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo registrar la comida.");
+    } finally {
+      setTrackingItemId(null);
     }
   }
 
@@ -455,9 +534,9 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
               </select>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" type="date" value={form.start_date} onChange={(event) => updateField("start_date", event.target.value)} />
-              <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" type="date" value={form.end_date} onChange={(event) => updateField("end_date", event.target.value)} />
+            <div className="grid gap-2">
+              <label className="text-sm font-semibold text-[#3d493f]" htmlFor="plan-start-date">Inicio del plan</label>
+              <input id="plan-start-date" className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" type="date" value={form.start_date} onChange={(event) => updateField("start_date", event.target.value)} />
             </div>
             <textarea className="min-h-24 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3" placeholder={config.descriptionPlaceholder} value={form.description} onChange={(event) => updateField("description", event.target.value)} />
 
@@ -507,14 +586,13 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                 <span className="rounded-md bg-[#f7f5ef] px-3 py-1 text-sm font-semibold">{readablePlan.status}</span>
               </div>
 
-              <div className="mt-4 grid gap-3 text-sm text-[#5d6959] sm:grid-cols-3">
+              {error ? <div className="mt-4"><FormMessage type="error">{error}</FormMessage></div> : null}
+              {success ? <div className="mt-4"><FormMessage type="success">{success}</FormMessage></div> : null}
+
+              <div className="mt-4 grid gap-3 text-sm text-[#5d6959] sm:grid-cols-2">
                 <div className="rounded-md bg-[#f7f5ef] p-3">
                   <p className="font-semibold text-[#18201b]">Inicio</p>
                   <p className="mt-1">{readablePlan.start_date ?? "Sin fecha"}</p>
-                </div>
-                <div className="rounded-md bg-[#f7f5ef] p-3">
-                  <p className="font-semibold text-[#18201b]">Fin</p>
-                  <p className="mt-1">{readablePlan.end_date ?? "Sin fecha"}</p>
                 </div>
                 <div className="rounded-md bg-[#f7f5ef] p-3">
                   <p className="font-semibold text-[#18201b]">Contenido</p>
@@ -538,6 +616,39 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                         <span className="rounded-md bg-white px-3 py-1 text-xs font-semibold text-[#4f5d75]">Bloque {index + 1}</span>
                       </div>
                       {item.details ? <p className="mt-3 whitespace-pre-line leading-7 text-[#3d493f]">{item.details}</p> : null}
+                      {readablePlan.category === "Entrenamiento" ? (
+                        <form className="mt-4 grid gap-3 rounded-md border border-[#d9d4c7] bg-white p-3" onSubmit={(event) => handleWorkoutTracking(event, item)}>
+                          <p className="text-sm font-semibold">Registrar progreso</p>
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <input name="sets_completed" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" placeholder="Series hechas" type="number" min="0" />
+                            <input name="reps_completed" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" placeholder="Repeticiones hechas" type="number" min="0" />
+                            <select name="intensity" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" defaultValue="">
+                              <option value="">Intensidad</option>
+                              <option value="Suave">Suave</option>
+                              <option value="Media">Media</option>
+                              <option value="Alta">Alta</option>
+                            </select>
+                          </div>
+                          <textarea name="notes" className="min-h-16 rounded-md border border-[#d9d4c7] px-3 py-2 text-sm" placeholder="Notas del entrenamiento" />
+                          <button className="w-fit rounded-md bg-[#37513b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-70" disabled={trackingItemId === item.id}>
+                            {trackingItemId === item.id ? "Guardando..." : "Guardar progreso"}
+                          </button>
+                        </form>
+                      ) : null}
+                      {readablePlan.category === "Nutricion" ? (
+                        <form className="mt-4 grid gap-3 rounded-md border border-[#d9d4c7] bg-white p-3" onSubmit={(event) => handleDietTracking(event, item)}>
+                          <p className="text-sm font-semibold">Registrar lo comido</p>
+                          <textarea name="consumed_food" className="min-h-20 rounded-md border border-[#d9d4c7] px-3 py-2 text-sm" placeholder="Escribe lo que comiste en esta comida" required />
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <input name="adherence_percentage" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" placeholder="% cumplido" type="number" min="0" max="100" defaultValue={100} />
+                            <input name="water_liters" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" placeholder="Agua en litros" type="number" min="0" step="0.1" />
+                          </div>
+                          <textarea name="notes" className="min-h-16 rounded-md border border-[#d9d4c7] px-3 py-2 text-sm" placeholder="Notas o sensaciones" />
+                          <button className="w-fit rounded-md bg-[#37513b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-70" disabled={trackingItemId === item.id}>
+                            {trackingItemId === item.id ? "Guardando..." : "Guardar comida"}
+                          </button>
+                        </form>
+                      ) : null}
                     </div>
                   ))}
                 </div>

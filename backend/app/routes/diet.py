@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
-from app.models import DietEntry
+from app.models import DietEntry, PlanItem
 from app.route_utils import get_client_id_for_tracking, paginate_query, parse_optional_float, parse_optional_int
 
 diet_bp = Blueprint("diet", __name__)
@@ -49,12 +49,23 @@ def create_diet_entry():
     if error:
         return error
 
+    plan_item_id, error = parse_optional_int(data.get("plan_item_id"), "plan_item_id", minimum=1)
+    if error:
+        return error
+    if plan_item_id is not None:
+        plan_item = db.session.get(PlanItem, plan_item_id)
+        if not plan_item or plan_item.plan.client_id != int(get_jwt_identity()):
+            return jsonify({"message": "Plan item not found"}), 404
+
     entry = DietEntry(
         client_id=int(get_jwt_identity()),
+        plan_item_id=plan_item_id,
         adherence_percentage=adherence,
         meals_completed=meals_completed,
         total_meals=total_meals,
         water_liters=water_liters,
+        consumed_food=data.get("consumed_food"),
+        recommended_meal=data.get("recommended_meal"),
         notes=data.get("notes"),
     )
     db.session.add(entry)
@@ -98,6 +109,10 @@ def update_diet_entry(entry_id):
         if error:
             return error
         entry.water_liters = water_liters
+
+    for field in ["consumed_food", "recommended_meal"]:
+        if field in data:
+            setattr(entry, field, data.get(field))
 
     if "notes" in data:
         entry.notes = data.get("notes")

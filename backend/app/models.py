@@ -158,21 +158,28 @@ class WorkoutEntry(db.Model, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    plan_item_id: Mapped[Optional[int]] = mapped_column(ForeignKey("plan_items.id"))
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     workout_type: Mapped[Optional[str]] = mapped_column(String(80))
     duration_minutes: Mapped[Optional[int]] = mapped_column(Integer)
+    sets_completed: Mapped[Optional[int]] = mapped_column(Integer)
+    reps_completed: Mapped[Optional[int]] = mapped_column(Integer)
     intensity: Mapped[Optional[str]] = mapped_column(String(40))
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
     client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
+    plan_item: Mapped[Optional["PlanItem"]] = relationship("PlanItem", foreign_keys=[plan_item_id])
 
     def to_dict(self):
         return {
             "id": self.id,
             "client_id": self.client_id,
+            "plan_item_id": self.plan_item_id,
             "title": self.title,
             "workout_type": self.workout_type,
             "duration_minutes": self.duration_minutes,
+            "sets_completed": self.sets_completed,
+            "reps_completed": self.reps_completed,
             "intensity": self.intensity,
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -184,22 +191,29 @@ class DietEntry(db.Model, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    plan_item_id: Mapped[Optional[int]] = mapped_column(ForeignKey("plan_items.id"))
     adherence_percentage: Mapped[int] = mapped_column(Integer, nullable=False)
     meals_completed: Mapped[Optional[int]] = mapped_column(Integer)
     total_meals: Mapped[Optional[int]] = mapped_column(Integer)
     water_liters: Mapped[Optional[float]] = mapped_column(Float)
+    consumed_food: Mapped[Optional[str]] = mapped_column(Text)
+    recommended_meal: Mapped[Optional[str]] = mapped_column(String(160))
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
     client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
+    plan_item: Mapped[Optional["PlanItem"]] = relationship("PlanItem", foreign_keys=[plan_item_id])
 
     def to_dict(self):
         return {
             "id": self.id,
             "client_id": self.client_id,
+            "plan_item_id": self.plan_item_id,
             "adherence_percentage": self.adherence_percentage,
             "meals_completed": self.meals_completed,
             "total_meals": self.total_meals,
             "water_liters": self.water_liters,
+            "consumed_food": self.consumed_food,
+            "recommended_meal": self.recommended_meal,
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

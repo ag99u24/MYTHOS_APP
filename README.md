@@ -158,7 +158,7 @@ Backend:
 
 ```bash
 cd backend
-python -m unittest discover -s tests
+pytest
 ```
 
 Frontend:

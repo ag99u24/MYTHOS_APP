@@ -474,6 +474,88 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(client_plans[0]["title"], "Entrenamiento visible")
         self.assertEqual(client_plans[0]["items"][0]["title"], "Sentadilla")
 
+    def test_client_can_track_assigned_training_item(self):
+        professional = self.register("track-training-pro@example.com", "professional", "Coach")
+        client_session = self.register("track-training-client@example.com", "client", "Training Client")
+
+        self.client.post(
+            "/api/users/clients",
+            json={"email": "track-training-client@example.com"},
+            headers=self.auth_header(professional),
+        )
+        training_response = self.client.post(
+            "/api/plans",
+            json={
+                "title": "Fuerza base",
+                "category": "Entrenamiento",
+                "status": "active",
+                "client_id": client_session["user"]["id"],
+                "items": [{"day": "Lunes", "title": "Press banca", "details": "4x8"}],
+            },
+            headers=self.auth_header(professional),
+        )
+        plan_item_id = training_response.get_json()["plan"]["items"][0]["id"]
+
+        workout_response = self.client.post(
+            "/api/workouts",
+            json={
+                "plan_item_id": plan_item_id,
+                "title": "Press banca",
+                "workout_type": "Plan asignado",
+                "sets_completed": 4,
+                "reps_completed": 32,
+                "intensity": "Media",
+            },
+            headers=self.auth_header(client_session),
+        )
+
+        self.assertEqual(workout_response.status_code, 201)
+        workout = workout_response.get_json()["workout"]
+        self.assertEqual(workout["plan_item_id"], plan_item_id)
+        self.assertEqual(workout["sets_completed"], 4)
+        self.assertEqual(workout["reps_completed"], 32)
+
+    def test_client_can_track_assigned_nutrition_item(self):
+        professional = self.register("track-diet-pro@example.com", "professional", "Coach")
+        client_session = self.register("track-diet-client@example.com", "client", "Nutrition Client")
+
+        self.client.post(
+            "/api/users/clients",
+            json={"email": "track-diet-client@example.com"},
+            headers=self.auth_header(professional),
+        )
+        nutrition_response = self.client.post(
+            "/api/plans",
+            json={
+                "title": "Dieta rendimiento",
+                "category": "Nutricion",
+                "status": "active",
+                "client_id": client_session["user"]["id"],
+                "items": [{"day": "Lunes", "title": "Desayuno", "details": "Avena, yogur y fruta"}],
+            },
+            headers=self.auth_header(professional),
+        )
+        plan_item_id = nutrition_response.get_json()["plan"]["items"][0]["id"]
+
+        diet_response = self.client.post(
+            "/api/diet",
+            json={
+                "plan_item_id": plan_item_id,
+                "recommended_meal": "Desayuno",
+                "consumed_food": "Avena con yogur y platano",
+                "adherence_percentage": 90,
+                "meals_completed": 1,
+                "total_meals": 1,
+            },
+            headers=self.auth_header(client_session),
+        )
+
+        self.assertEqual(diet_response.status_code, 201)
+        diet = diet_response.get_json()["diet"]
+        self.assertEqual(diet["plan_item_id"], plan_item_id)
+        self.assertEqual(diet["recommended_meal"], "Desayuno")
+        self.assertEqual(diet["consumed_food"], "Avena con yogur y platano")
+
     def test_professional_can_create_session_for_assigned_client(self):
         professional = self.register("session-pro@example.com", "professional", "Coach")
         client_session = self.register("session-client@example.com", "client", "Session Client")

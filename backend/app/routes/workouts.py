@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
-from app.models import WorkoutEntry
+from app.models import PlanItem, WorkoutEntry
 from app.route_utils import get_client_id_for_tracking, paginate_query, parse_optional_int
 
 workouts_bp = Blueprint("workouts", __name__)
@@ -35,11 +35,30 @@ def create_workout():
     if error:
         return error
 
+    plan_item_id, error = parse_optional_int(data.get("plan_item_id"), "plan_item_id", minimum=1)
+    if error:
+        return error
+    if plan_item_id is not None:
+        plan_item = db.session.get(PlanItem, plan_item_id)
+        if not plan_item or plan_item.plan.client_id != int(get_jwt_identity()):
+            return jsonify({"message": "Plan item not found"}), 404
+
+    sets_completed, error = parse_optional_int(data.get("sets_completed"), "sets_completed", minimum=0)
+    if error:
+        return error
+
+    reps_completed, error = parse_optional_int(data.get("reps_completed"), "reps_completed", minimum=0)
+    if error:
+        return error
+
     entry = WorkoutEntry(
         client_id=int(get_jwt_identity()),
+        plan_item_id=plan_item_id,
         title=data["title"].strip(),
         workout_type=data.get("workout_type"),
         duration_minutes=duration_minutes,
+        sets_completed=sets_completed,
+        reps_completed=reps_completed,
         intensity=data.get("intensity"),
         notes=data.get("notes"),
     )
@@ -69,6 +88,18 @@ def update_workout(entry_id):
         if error:
             return error
         entry.duration_minutes = duration_minutes
+
+    if "sets_completed" in data:
+        sets_completed, error = parse_optional_int(data.get("sets_completed"), "sets_completed", minimum=0)
+        if error:
+            return error
+        entry.sets_completed = sets_completed
+
+    if "reps_completed" in data:
+        reps_completed, error = parse_optional_int(data.get("reps_completed"), "reps_completed", minimum=0)
+        if error:
+            return error
+        entry.reps_completed = reps_completed
 
     for field in ["workout_type", "intensity", "notes"]:
         if field in data:
