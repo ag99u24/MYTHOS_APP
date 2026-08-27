@@ -55,6 +55,11 @@ export function ProfileClient() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
+  const isClient = user?.role === "client";
+  const profileTypeLabel = user ? (isClient ? "Perfil de cliente" : "Perfil profesional") : "Perfil Mythos";
+  const specialtyLabel = isClient ? "Preferencias" : "Especialidad";
+  const specialtyPlaceholder = isClient ? "Horario, preferencias, lesiones, alimentos a evitar..." : "Entrenamiento, nutricion, fuerza...";
+  const goalLabel = isClient ? "Objetivo personal" : "Objetivo profesional";
 
   const loadProfile = useCallback(async () => {
     if (!token) {
@@ -184,17 +189,17 @@ export function ProfileClient() {
           </div>
           <div>
             <h2 className="text-xl font-semibold">{user?.name || "Perfil Mythos"}</h2>
-            <p className="mt-1 text-[#5d6959]">{user?.role === "client" ? "Cliente" : "Profesional"}</p>
+            <p className="mt-1 text-[#5d6959]">{profileTypeLabel}</p>
           </div>
         </div>
 
         <div className="mt-6 grid gap-3 text-sm">
           <div className="rounded-md bg-[#f7f5ef] p-4">
-            <p className="font-semibold">Especialidad</p>
+            <p className="font-semibold">{specialtyLabel}</p>
             <p className="mt-1 text-[#5d6959]">{user?.specialty || "Pendiente de completar"}</p>
           </div>
           <div className="rounded-md bg-[#f7f5ef] p-4">
-            <p className="font-semibold">Objetivo</p>
+            <p className="font-semibold">{goalLabel}</p>
             <p className="mt-1 text-[#5d6959]">{user?.goal || "Pendiente de completar"}</p>
           </div>
           <div className="rounded-md bg-[#f7f5ef] p-4">
@@ -229,10 +234,10 @@ export function ProfileClient() {
             />
           </label>
           <label className="grid gap-2 text-sm font-medium">
-            Especialidad
+            {specialtyLabel}
             <input
               className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3"
-              placeholder="Entrenamiento, nutricion, fuerza..."
+              placeholder={specialtyPlaceholder}
               value={form.specialty}
               onChange={(event) => updateField("specialty", event.target.value)}
             />
@@ -247,7 +252,7 @@ export function ProfileClient() {
             />
           </label>
           <label className="grid gap-2 text-sm font-medium">
-            Objetivo profesional o personal
+            {goalLabel}
             <textarea
               className="min-h-28 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3"
               value={form.goal}

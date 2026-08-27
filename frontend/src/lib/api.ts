@@ -31,10 +31,10 @@ function getFallbackMessage(status: number) {
 }
 
 function redirectToLoginAfterExpiredSession(path: string) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return false;
 
   const endpoint = path.split("?")[0];
-  if (PUBLIC_AUTH_PATHS.has(endpoint) || window.location.pathname === "/login") return;
+  if (PUBLIC_AUTH_PATHS.has(endpoint) || window.location.pathname === "/login") return false;
 
   clearSession();
 
@@ -43,6 +43,11 @@ function redirectToLoginAfterExpiredSession(path: string) {
   if (currentPath) params.set("next", currentPath);
 
   window.location.assign(`/login?${params.toString()}`);
+  return true;
+}
+
+function waitForRedirect<T>() {
+  return new Promise<T>(() => undefined);
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
@@ -65,8 +70,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    if (response.status === 401) {
-      redirectToLoginAfterExpiredSession(path);
+    if (response.status === 401 && redirectToLoginAfterExpiredSession(path)) {
+      return waitForRedirect<T>();
     }
 
     throw new ApiError(data.message ?? getFallbackMessage(response.status), response.status);

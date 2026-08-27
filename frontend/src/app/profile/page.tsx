@@ -3,7 +3,7 @@ import { ProfileClient } from "./ProfileClient";
 
 export default function ProfilePage() {
   return (
-    <AppShell title="Perfil" description="Datos visibles del profesional y ajustes basicos de la cuenta.">
+    <AppShell title="Perfil" description="Datos visibles y ajustes basicos de tu cuenta.">
       <ProfileClient />
     </AppShell>
   );
