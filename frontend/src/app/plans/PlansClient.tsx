@@ -171,7 +171,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
     if (!activeToken) return;
 
     try {
-      const response = await apiRequest<{ clients: AuthUser[] }>("/users/clients", { token: activeToken });
+      const response = await apiRequest<{ clients: AuthUser[] }>("/users/clients?per_page=100", { token: activeToken });
       setClients(response.clients);
     } catch {
       setClients([]);
@@ -262,6 +262,27 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
     setError("");
     setSuccess("");
 
+    const planItems = form.items
+      .filter((item) => item.title.trim())
+      .map((item, index) => ({
+        day: item.day || "General",
+        title: item.title.trim(),
+        details: item.details,
+        sort_order: index,
+      }));
+
+    if (!form.client_id) {
+      setError("Selecciona el cliente al que quieres asignar este plan.");
+      setIsSaving(false);
+      return;
+    }
+
+    if (planItems.length === 0) {
+      setError(`Anade al menos un bloque en ${config.blockTitle.toLowerCase()}.`);
+      setIsSaving(false);
+      return;
+    }
+
     const payload = {
       title: form.title,
       description: form.description,
@@ -270,14 +291,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
       client_id: Number(form.client_id),
       start_date: form.start_date || null,
       end_date: form.end_date || null,
-      items: form.items
-        .filter((item) => item.title.trim())
-        .map((item, index) => ({
-          day: item.day || "General",
-          title: item.title,
-          details: item.details,
-          sort_order: index,
-        })),
+      items: planItems,
     };
 
     try {
@@ -286,12 +300,14 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
         setPlans((current) => current.map((plan) => (plan.id === response.plan.id ? response.plan : plan)));
         setSelectedPlan(response.plan);
         setSuccess("Plan actualizado correctamente.");
+        await loadPlans(token);
       } else {
         const response = await apiRequest<{ plan: Plan }>("/plans", { method: "POST", body: payload, token });
         setPlans((current) => [response.plan, ...current]);
         setPage(1);
         setSelectedPlan(response.plan);
         setSuccess(config.successCreated);
+        await loadPlans(token);
       }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo guardar el plan.");
@@ -421,7 +437,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                 <option value="">Seleccionar cliente</option>
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>
-                    {client.name}
+                    {client.name} - {client.email}
                   </option>
                 ))}
               </select>

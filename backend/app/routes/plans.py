@@ -100,6 +100,11 @@ def create_plan():
     if error:
         return error
 
+    raw_items = data.get("items", [])
+    plan_items = [item for item in raw_items if (item.get("title") or "").strip()]
+    if not plan_items:
+        return jsonify({"message": "At least one plan item is required"}), 400
+
     plan = Plan(
         title=data["title"].strip(),
         description=data.get("description"),
@@ -111,7 +116,7 @@ def create_plan():
         client_id=client.id,
     )
 
-    for index, item in enumerate(data.get("items", [])):
+    for index, item in enumerate(plan_items):
         sort_order, error = parse_optional_int(item.get("sort_order", index), "sort_order", minimum=0)
         if error:
             return error
@@ -119,7 +124,7 @@ def create_plan():
         plan.items.append(
             PlanItem(
                 day=item.get("day", "General"),
-                title=item.get("title", "Actividad"),
+                title=item["title"].strip(),
                 details=item.get("details"),
                 sort_order=sort_order if sort_order is not None else index,
             )
@@ -179,8 +184,12 @@ def update_plan(plan_id):
         return jsonify({"message": "end_date must be after start_date"}), 400
 
     if "items" in data:
+        plan_items = [item for item in data["items"] if (item.get("title") or "").strip()]
+        if not plan_items:
+            return jsonify({"message": "At least one plan item is required"}), 400
+
         plan.items.clear()
-        for index, item in enumerate(data["items"]):
+        for index, item in enumerate(plan_items):
             sort_order, error = parse_optional_int(item.get("sort_order", index), "sort_order", minimum=0)
             if error:
                 return error
@@ -188,7 +197,7 @@ def update_plan(plan_id):
             plan.items.append(
                 PlanItem(
                     day=item.get("day", "General"),
-                    title=item.get("title", "Actividad"),
+                    title=item["title"].strip(),
                     details=item.get("details"),
                     sort_order=sort_order if sort_order is not None else index,
                 )
