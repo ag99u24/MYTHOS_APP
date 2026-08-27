@@ -12,14 +12,24 @@ type AuthCardProps = {
 export function AuthCard({ title, description, children, footer }: AuthCardProps) {
   return (
     <main className="flex min-h-screen bg-[#f8f6f0] text-[#0b0c10]">
-      <section className="hidden flex-1 border-r border-[#c5a059] bg-[#0b0c10] p-10 text-white lg:flex lg:flex-col lg:justify-between">
-        <Link href="/" className="flex items-center gap-3 text-xl font-semibold">
+      <section className="relative hidden flex-1 overflow-hidden border-r border-[#c5a059] bg-[#0b0c10] p-10 text-white lg:flex lg:flex-col lg:justify-between">
+        <Image
+          src="/auth-training.jpg"
+          alt="Persona entrenando en gimnasio"
+          fill
+          sizes="50vw"
+          className="object-cover opacity-55"
+          priority
+        />
+        <div className="absolute inset-0 bg-[#0b0c10]/60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0b0c10] via-[#0b0c10]/40 to-transparent" />
+        <Link href="/" className="relative z-10 flex items-center gap-3 text-xl font-semibold">
           <span className="flex size-12 items-center justify-center rounded-md border border-[#c5a059] p-2">
             <Image src="/mythos-logo.png" alt="Mythos" width={30} height={44} className="h-9 w-auto invert" priority />
           </span>
           <span>Mythos</span>
         </Link>
-        <div>
+        <div className="relative z-10">
           <p className="max-w-lg text-4xl font-semibold leading-tight">
             Gestion profesional para planes, clientes y progreso.
           </p>
