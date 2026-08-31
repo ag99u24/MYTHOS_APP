@@ -33,6 +33,9 @@ export function FloatingChat() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [preview, setPreview] = useState<UnreadPreviewResponse | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [reply, setReply] = useState("");
+  const [error, setError] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
 
   const loadPreview = useCallback(async () => {
@@ -63,6 +66,34 @@ export function FloatingChat() {
   const sender = preview.message.sender;
   const chatHref = user.role === "professional" ? `/messages?client_id=${preview.message.client_id}` : "/messages";
 
+  async function handleReply(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !preview?.message || !reply.trim()) return;
+
+    setIsSending(true);
+    setError("");
+
+    try {
+      const body = user?.role === "professional"
+        ? { body: reply, client_id: preview.message.client_id }
+        : { body: reply, professional_id: preview.message.professional_id };
+      await apiRequest<{ message: ChatMessagePreview }>("/messages", { method: "POST", token, body });
+      setReply("");
+      await loadPreview();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo enviar la respuesta.");
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  function handleReplyKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey) return;
+
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
+
   return (
     <div className="fixed bottom-5 left-5 z-40 flex max-w-[calc(100vw-2.5rem)] flex-col items-start gap-3">
       {isOpen ? (
@@ -75,7 +106,21 @@ export function FloatingChat() {
                 <span className="rounded-md bg-[#a30000] px-2 py-1 text-xs font-semibold text-white">{preview.unread_count}</span>
               </div>
               <p className="mt-2 max-h-[72px] overflow-hidden text-sm leading-6 text-[#5d6959]">{preview.message.body}</p>
-              <div className="mt-4 flex gap-2">
+              <form className="mt-4 grid gap-2" onSubmit={handleReply}>
+                <textarea
+                  maxLength={1000}
+                  className="min-h-20 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-2 text-sm outline-none focus:border-[#c5a059]"
+                  placeholder="Responder..."
+                  value={reply}
+                  onChange={(event) => setReply(event.target.value)}
+                  onKeyDown={handleReplyKeyDown}
+                />
+                {error ? <p className="text-xs font-semibold text-[#a30000]">{error}</p> : null}
+                <button disabled={isSending || !reply.trim()} className="rounded-md bg-[#a30000] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
+                  {isSending ? "Enviando..." : "Responder"}
+                </button>
+              </form>
+              <div className="mt-3 flex gap-2">
                 <Link href={chatHref} className="rounded-md bg-[#18201b] px-4 py-2 text-sm font-semibold text-white" onClick={() => setIsOpen(false)}>
                   Abrir chat
                 </Link>
