@@ -5,7 +5,7 @@ import { DashboardClient } from "./DashboardClient";
 export default function DashboardPage() {
   return (
     <AppShell
-      title="Panel de control"
+      title="Mi area personal"
       description="Resumen operativo de planes, seguimiento, sesiones y mensajes."
       action={<DashboardCreateMenu />}
     >

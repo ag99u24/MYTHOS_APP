@@ -197,8 +197,8 @@ class ApiTestCase(unittest.TestCase):
 
         progress_response = self.client.post(
             "/api/progress",
-            json={"weight": 80.5, "body_fat": 18, "mood": "Bien"},
-            headers=self.auth_header(assigned_client),
+            json={"client_id": assigned_client["user"]["id"], "weight": 80.5, "body_fat": 18, "mood": "Bien"},
+            headers=self.auth_header(professional),
         )
         self.assertEqual(progress_response.status_code, 201)
 
@@ -291,8 +291,8 @@ class ApiTestCase(unittest.TestCase):
 
         progress_response = self.client.post(
             "/api/progress",
-            json={"weight": 78, "mood": "Bien"},
-            headers=self.auth_header(client_session),
+            json={"client_id": client_session["user"]["id"], "weight": 78, "mood": "Bien"},
+            headers=self.auth_header(professional),
         )
         self.assertEqual(progress_response.status_code, 201)
 
@@ -359,6 +359,64 @@ class ApiTestCase(unittest.TestCase):
         list_response = self.client.get("/api/workouts", headers=self.auth_header(client_session))
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(list_response.get_json()["workouts"], [])
+
+    def test_professional_can_manage_body_measurements_for_assigned_client(self):
+        professional = self.register("measure-pro@example.com", "professional", "Coach")
+        client_session = self.register("measure-client@example.com", "client", "Measured Client")
+
+        self.client.post(
+            "/api/users/clients",
+            json={"email": "measure-client@example.com"},
+            headers=self.auth_header(professional),
+        )
+
+        create_response = self.client.post(
+            "/api/progress",
+            json={
+                "client_id": client_session["user"]["id"],
+                "weight": 79.4,
+                "body_fat": 17.5,
+                "muscle_percentage": 42.3,
+                "visceral_fat": 7,
+                "chest_cm": 101,
+                "waist_cm": 83,
+                "hip_cm": 96,
+                "arm_cm": 35,
+                "thigh_cm": 57,
+                "mood": "Bien",
+            },
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(create_response.status_code, 201)
+        measurement = create_response.get_json()["progress"]
+        self.assertEqual(measurement["client_id"], client_session["user"]["id"])
+        self.assertEqual(measurement["measured_by_id"], professional["user"]["id"])
+        self.assertEqual(measurement["muscle_percentage"], 42.3)
+        measurement_id = measurement["id"]
+
+        update_response = self.client.patch(
+            f"/api/progress/{measurement_id}",
+            json={"weight": 78.8, "waist_cm": 81.5},
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(update_response.get_json()["progress"]["weight"], 78.8)
+        self.assertEqual(update_response.get_json()["progress"]["waist_cm"], 81.5)
+
+        delete_response = self.client.delete(
+            f"/api/progress/{measurement_id}",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(delete_response.status_code, 200)
+
+    def test_client_cannot_create_body_measurements(self):
+        client_session = self.register("client-measure-forbidden@example.com", "client", "Client")
+        response = self.client.post(
+            "/api/progress",
+            json={"client_id": client_session["user"]["id"], "weight": 80},
+            headers=self.auth_header(client_session),
+        )
+        self.assertEqual(response.status_code, 403)
 
     def test_professional_cannot_create_tracking_entry(self):
         professional = self.register("coach@example.com", "professional", "Coach")
@@ -669,6 +727,32 @@ class ApiTestCase(unittest.TestCase):
         )
         self.assertEqual(unread_after_response.status_code, 200)
         self.assertEqual(unread_after_response.get_json()["unread_count"], 0)
+
+    def test_unread_preview_includes_sender(self):
+        professional = self.register("preview-pro@example.com", "professional", "Coach Preview")
+        client_session = self.register("preview-client@example.com", "client", "Client Preview")
+
+        self.client.post(
+            "/api/users/clients",
+            json={"email": "preview-client@example.com"},
+            headers=self.auth_header(professional),
+        )
+        self.client.post(
+            "/api/messages",
+            json={"body": "Tengo una duda con la rutina"},
+            headers=self.auth_header(client_session),
+        )
+
+        preview_response = self.client.get(
+            "/api/messages/unread-preview",
+            headers=self.auth_header(professional),
+        )
+
+        self.assertEqual(preview_response.status_code, 200)
+        preview = preview_response.get_json()
+        self.assertEqual(preview["unread_count"], 1)
+        self.assertEqual(preview["message"]["body"], "Tengo una duda con la rutina")
+        self.assertEqual(preview["message"]["sender"]["name"], "Client Preview")
 
 
 if __name__ == "__main__":

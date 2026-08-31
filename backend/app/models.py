@@ -132,20 +132,37 @@ class ProgressEntry(db.Model, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    measured_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
     weight: Mapped[Optional[float]] = mapped_column(Float)
     body_fat: Mapped[Optional[float]] = mapped_column(Float)
+    muscle_percentage: Mapped[Optional[float]] = mapped_column(Float)
+    visceral_fat: Mapped[Optional[float]] = mapped_column(Float)
+    chest_cm: Mapped[Optional[float]] = mapped_column(Float)
+    waist_cm: Mapped[Optional[float]] = mapped_column(Float)
+    hip_cm: Mapped[Optional[float]] = mapped_column(Float)
+    arm_cm: Mapped[Optional[float]] = mapped_column(Float)
+    thigh_cm: Mapped[Optional[float]] = mapped_column(Float)
     mood: Mapped[Optional[str]] = mapped_column(String(40))
     notes: Mapped[Optional[str]] = mapped_column(Text)
     photo_url: Mapped[Optional[str]] = mapped_column(String(500))
 
     client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
+    measured_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[measured_by_id])
 
     def to_dict(self):
         return {
             "id": self.id,
             "client_id": self.client_id,
+            "measured_by_id": self.measured_by_id,
             "weight": self.weight,
             "body_fat": self.body_fat,
+            "muscle_percentage": self.muscle_percentage,
+            "visceral_fat": self.visceral_fat,
+            "chest_cm": self.chest_cm,
+            "waist_cm": self.waist_cm,
+            "hip_cm": self.hip_cm,
+            "arm_cm": self.arm_cm,
+            "thigh_cm": self.thigh_cm,
             "mood": self.mood,
             "notes": self.notes,
             "photo_url": self.photo_url,
@@ -265,8 +282,8 @@ class ChatMessage(db.Model, TimestampMixin):
     client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
     sender: Mapped["User"] = relationship("User", foreign_keys=[sender_id])
 
-    def to_dict(self):
-        return {
+    def to_dict(self, include_sender=False):
+        data = {
             "id": self.id,
             "professional_id": self.professional_id,
             "client_id": self.client_id,
@@ -275,6 +292,9 @@ class ChatMessage(db.Model, TimestampMixin):
             "read_at": self.read_at.isoformat() if self.read_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+        if include_sender:
+            data["sender"] = self.sender.to_dict() if self.sender else None
+        return data
 
 
 class PasswordResetToken(db.Model, TimestampMixin):

@@ -3,7 +3,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
 from app.models import ProgressEntry
-from app.route_utils import get_client_id_for_tracking, paginate_query, parse_optional_float
+from app.route_utils import get_client_id_for_tracking, paginate_query, parse_int, parse_optional_float, professional_has_client
 
 progress_bp = Blueprint("progress", __name__)
 
@@ -24,11 +24,17 @@ def list_progress():
 @progress_bp.post("")
 @jwt_required()
 def create_progress():
-    if get_jwt().get("role") != "client":
-        return jsonify({"message": "Only clients can register progress"}), 403
-
     user_id = int(get_jwt_identity())
+    if get_jwt().get("role") != "professional":
+        return jsonify({"message": "Only professionals can register body measurements"}), 403
+
     data = request.get_json() or {}
+    client_id, error = parse_int(data.get("client_id"), "client_id")
+    if error:
+        return error
+    if not professional_has_client(user_id, client_id):
+        return jsonify({"message": "Client not found"}), 404
+
     weight, error = parse_optional_float(data.get("weight"), "weight", minimum=0)
     if error:
         return error
@@ -37,10 +43,19 @@ def create_progress():
     if error:
         return error
 
+    measurement_fields = {}
+    for field in ["muscle_percentage", "visceral_fat", "chest_cm", "waist_cm", "hip_cm", "arm_cm", "thigh_cm"]:
+        measurement, error = parse_optional_float(data.get(field), field, minimum=0)
+        if error:
+            return error
+        measurement_fields[field] = measurement
+
     entry = ProgressEntry(
-        client_id=user_id,
+        client_id=client_id,
+        measured_by_id=user_id,
         weight=weight,
         body_fat=body_fat,
+        **measurement_fields,
         mood=data.get("mood"),
         notes=data.get("notes"),
         photo_url=data.get("photo_url"),
@@ -55,9 +70,10 @@ def create_progress():
 @jwt_required()
 def update_progress(entry_id):
     user_id = int(get_jwt_identity())
+    role = get_jwt().get("role")
     entry = db.session.get(ProgressEntry, entry_id)
 
-    if get_jwt().get("role") != "client" or not entry or entry.client_id != user_id:
+    if role != "professional" or not entry or not professional_has_client(user_id, entry.client_id):
         return jsonify({"message": "Progress entry not found"}), 404
 
     data = request.get_json() or {}
@@ -73,6 +89,13 @@ def update_progress(entry_id):
             return error
         entry.body_fat = body_fat
 
+    for field in ["muscle_percentage", "visceral_fat", "chest_cm", "waist_cm", "hip_cm", "arm_cm", "thigh_cm"]:
+        if field in data:
+            measurement, error = parse_optional_float(data.get(field), field, minimum=0)
+            if error:
+                return error
+            setattr(entry, field, measurement)
+
     for field in ["mood", "notes", "photo_url"]:
         if field in data:
             setattr(entry, field, data[field])
@@ -85,9 +108,10 @@ def update_progress(entry_id):
 @jwt_required()
 def delete_progress(entry_id):
     user_id = int(get_jwt_identity())
+    role = get_jwt().get("role")
     entry = db.session.get(ProgressEntry, entry_id)
 
-    if get_jwt().get("role") != "client" or not entry or entry.client_id != user_id:
+    if role != "professional" or not entry or not professional_has_client(user_id, entry.client_id):
         return jsonify({"message": "Progress entry not found"}), 404
 
     db.session.delete(entry)

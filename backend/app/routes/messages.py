@@ -88,6 +88,22 @@ def unread_messages_count():
     return jsonify({"unread_count": query.count()})
 
 
+@messages_bp.get("/unread-preview")
+@jwt_required()
+def unread_messages_preview():
+    user_id = int(get_jwt_identity())
+    role = get_jwt().get("role")
+    query, error_response, status_code = get_unread_messages_query(user_id, role)
+    if error_response is not None:
+        return error_response, status_code
+
+    latest_message = query.order_by(ChatMessage.created_at.desc()).first()
+    return jsonify({
+        "unread_count": query.count(),
+        "message": latest_message.to_dict(include_sender=True) if latest_message else None,
+    })
+
+
 @messages_bp.post("")
 @jwt_required()
 def create_message():

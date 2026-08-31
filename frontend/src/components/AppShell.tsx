@@ -6,17 +6,18 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { AuthUser, getStoredUser } from "@/lib/session";
+import { FloatingChat } from "./FloatingChat";
 import { PrivateRoute } from "./PrivateRoute";
 import { SessionPanel } from "./SessionPanel";
 
 const navigation = [
-  { href: "/dashboard", label: "Panel", icon: "\u{1F3DB}\uFE0F", roles: ["professional", "client"] },
+  { href: "/dashboard", label: "Mi area", icon: "\u{1F3DB}\uFE0F", roles: ["professional", "client"] },
   { href: "/clients", label: "Clientes", icon: "\u{1F465}", roles: ["professional"] },
   { href: "/training", label: "Entrenamiento", icon: "\u{1F3CB}\uFE0F", roles: ["professional", "client"] },
   { href: "/nutrition-plans", label: "Nutricion", icon: "\u{1F957}", roles: ["professional", "client"] },
   { href: "/sessions", label: "Agenda", icon: "\u{1F4C5}", roles: ["professional", "client"] },
   { href: "/messages", label: "Chat", icon: "\u{1F4AC}", roles: ["professional", "client"] },
-  { href: "/progress", label: "Progreso", icon: "\u{1F4C8}", roles: ["professional", "client"] },
+  { href: "/progress", label: "Progreso", icon: "\u{1F4C8}", roles: ["professional"] },
   { href: "/nutrition", label: "Alimentos", icon: "\u{1F50E}", roles: ["professional", "client"] },
   { href: "/profile", label: "Perfil", icon: "\u{1F464}", roles: ["professional", "client"] },
 ];
@@ -33,6 +34,7 @@ export function AppShell({ title, description, allowedRoles, action, children }:
   const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
 
   useEffect(() => {
     void Promise.resolve().then(() => setUser(getStoredUser()));
@@ -46,7 +48,7 @@ export function AppShell({ title, description, allowedRoles, action, children }:
   return (
     <PrivateRoute allowedRoles={allowedRoles}>
       <main className="min-h-screen bg-[#f8f6f0] text-[#0b0c10]">
-        <div className="grid min-h-screen lg:grid-cols-[1fr_292px]">
+        <div className={`grid min-h-screen ${isSidebarExpanded ? "lg:grid-cols-[1fr_292px]" : "lg:grid-cols-[1fr_104px]"}`}>
           <section className="px-5 py-6 sm:px-8 lg:px-10">
             <header className="flex flex-col gap-4 border-b border-[#d9d4c7] pb-6 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -59,15 +61,33 @@ export function AppShell({ title, description, allowedRoles, action, children }:
             <div className="py-6">{children}</div>
           </section>
 
-          <aside className="order-first border-b border-[#d9d4c7] bg-[#0b0c10] px-5 py-5 text-white shadow-xl lg:order-last lg:border-b-0 lg:border-l lg:border-[#c5a059]/30">
-            <div className="flex items-center justify-between lg:block">
-              <Link href="/" className="flex items-center gap-3 text-xl font-semibold">
+          <aside className="order-first border-b border-[#d9d4c7] bg-[#0b0c10] px-5 py-5 text-white shadow-xl transition-all lg:order-last lg:border-b-0 lg:border-l lg:border-[#c5a059]/30">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                aria-label={isSidebarExpanded ? "Plegar menu" : "Desplegar menu"}
+                aria-expanded={isSidebarExpanded}
+                className="hidden min-w-0 items-center gap-3 rounded-md text-xl font-semibold transition hover:text-[#c5a059] lg:flex"
+                onClick={() => setIsSidebarExpanded((current) => !current)}
+              >
+                <span className="flex size-11 items-center justify-center rounded-md border border-[#c5a059] bg-white p-2">
+                  <Image src="/mythos-logo.png" alt="Mythos" width={28} height={40} className="h-8 w-auto" priority />
+                </span>
+                <span className={`${isSidebarExpanded ? "inline" : "hidden"} lg:${isSidebarExpanded ? "inline" : "hidden"}`}>Mythos</span>
+              </button>
+              <button
+                type="button"
+                aria-label={isMenuOpen ? "Cerrar menu" : "Abrir menu"}
+                aria-expanded={isMenuOpen}
+                className="flex min-w-0 items-center gap-3 text-xl font-semibold lg:hidden"
+                onClick={() => setIsMenuOpen((current) => !current)}
+              >
                 <span className="flex size-11 items-center justify-center rounded-md border border-[#c5a059] bg-white p-2">
                   <Image src="/mythos-logo.png" alt="Mythos" width={28} height={40} className="h-8 w-auto" priority />
                 </span>
                 <span>Mythos</span>
-              </Link>
-              <span className="rounded-md bg-white/10 px-3 py-1 text-sm font-semibold text-[#f8f6f0] ring-1 ring-[#c5a059]/60 lg:mt-4 lg:inline-flex">
+              </button>
+              <span className={`${isSidebarExpanded ? "inline-flex" : "hidden"} rounded-md bg-white/10 px-3 py-1 text-sm font-semibold text-[#f8f6f0] ring-1 ring-[#c5a059]/60 lg:mt-0`}>
                 {roleLabel}
               </span>
             </div>
@@ -91,32 +111,35 @@ export function AppShell({ title, description, allowedRoles, action, children }:
                   key={item.href}
                   item={item}
                   isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                  isSidebarExpanded={isSidebarExpanded}
                   onNavigate={() => setIsMenuOpen(false)}
                 />
               ))}
             </nav>
-            <SessionPanel />
+            <SessionPanel compact={!isSidebarExpanded} />
           </aside>
         </div>
+        <FloatingChat />
       </main>
     </PrivateRoute>
   );
 }
 
-function NavigationLink({ item, isActive, onNavigate }: { item: (typeof navigation)[number]; isActive: boolean; onNavigate: () => void }) {
+function NavigationLink({ item, isActive, isSidebarExpanded, onNavigate }: { item: (typeof navigation)[number]; isActive: boolean; isSidebarExpanded: boolean; onNavigate: () => void }) {
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
+      title={item.label}
       aria-current={isActive ? "page" : undefined}
-      className={`flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+      className={`flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm font-semibold transition ${isSidebarExpanded ? "" : "lg:justify-center"} ${
         isActive
           ? "border-[#c5a059] bg-[#a30000] text-white shadow-lg shadow-black/20"
           : "border-transparent text-[#f8f6f0] hover:border-[#c5a059]/60 hover:bg-white/10"
       }`}
     >
       <span className={`flex size-7 items-center justify-center rounded-md text-sm ${isActive ? "bg-white text-[#0b0c10]" : "bg-white/10 text-white"}`}>{item.icon}</span>
-      <span>{item.label}</span>
+      <span className={isSidebarExpanded ? "inline" : "lg:hidden"}>{item.label}</span>
     </Link>
   );
 }
