@@ -210,11 +210,22 @@ class DietEntry(db.Model, TimestampMixin):
     client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     plan_item_id: Mapped[Optional[int]] = mapped_column(ForeignKey("plan_items.id"))
     adherence_percentage: Mapped[int] = mapped_column(Integer, nullable=False)
+    meal_type: Mapped[Optional[str]] = mapped_column(String(40))
+    consumed_date: Mapped[Optional[date]] = mapped_column(Date)
     meals_completed: Mapped[Optional[int]] = mapped_column(Integer)
     total_meals: Mapped[Optional[int]] = mapped_column(Integer)
     water_liters: Mapped[Optional[float]] = mapped_column(Float)
     consumed_food: Mapped[Optional[str]] = mapped_column(Text)
     recommended_meal: Mapped[Optional[str]] = mapped_column(String(160))
+    product_code: Mapped[Optional[str]] = mapped_column(String(80))
+    brand: Mapped[Optional[str]] = mapped_column(String(160))
+    quantity_g: Mapped[Optional[float]] = mapped_column(Float)
+    calories_kcal: Mapped[Optional[float]] = mapped_column(Float)
+    protein_g: Mapped[Optional[float]] = mapped_column(Float)
+    carbs_g: Mapped[Optional[float]] = mapped_column(Float)
+    fat_g: Mapped[Optional[float]] = mapped_column(Float)
+    sugars_g: Mapped[Optional[float]] = mapped_column(Float)
+    salt_g: Mapped[Optional[float]] = mapped_column(Float)
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
     client: Mapped["User"] = relationship("User", foreign_keys=[client_id])
@@ -226,11 +237,22 @@ class DietEntry(db.Model, TimestampMixin):
             "client_id": self.client_id,
             "plan_item_id": self.plan_item_id,
             "adherence_percentage": self.adherence_percentage,
+            "meal_type": self.meal_type,
+            "consumed_date": self.consumed_date.isoformat() if self.consumed_date else None,
             "meals_completed": self.meals_completed,
             "total_meals": self.total_meals,
             "water_liters": self.water_liters,
             "consumed_food": self.consumed_food,
             "recommended_meal": self.recommended_meal,
+            "product_code": self.product_code,
+            "brand": self.brand,
+            "quantity_g": self.quantity_g,
+            "calories_kcal": self.calories_kcal,
+            "protein_g": self.protein_g,
+            "carbs_g": self.carbs_g,
+            "fat_g": self.fat_g,
+            "sugars_g": self.sugars_g,
+            "salt_g": self.salt_g,
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

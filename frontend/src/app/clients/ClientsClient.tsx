@@ -23,7 +23,22 @@ type Plan = {
 
 type ProgressEntry = { id: number; weight?: number | null; body_fat?: number | null; mood?: string | null; created_at?: string | null };
 type WorkoutEntry = { id: number; title: string; workout_type?: string | null; duration_minutes?: number | null; intensity?: string | null; created_at?: string | null };
-type DietEntry = { id: number; adherence_percentage: number; meals_completed?: number | null; total_meals?: number | null; created_at?: string | null };
+type DietEntry = {
+  id: number;
+  adherence_percentage: number;
+  meal_type?: string | null;
+  consumed_date?: string | null;
+  consumed_food?: string | null;
+  recommended_meal?: string | null;
+  quantity_g?: number | null;
+  calories_kcal?: number | null;
+  protein_g?: number | null;
+  carbs_g?: number | null;
+  fat_g?: number | null;
+  meals_completed?: number | null;
+  total_meals?: number | null;
+  created_at?: string | null;
+};
 type Session = { id: number; title: string; session_type: string; status: string; scheduled_at: string; duration_minutes?: number | null };
 type ClientProfile = {
   plans: Plan[];
@@ -334,8 +349,50 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
           </div>
         </div>
       ) : null}
+
+      {!isLoading && profile ? (
+        <div className="mt-5 rounded-md border border-[#ece7dc] p-4">
+          <h3 className="font-semibold">Registros de nutricion</h3>
+          <div className="mt-3 grid gap-2">
+            {profile.diet.length === 0 ? <p className="text-sm text-[#5d6959]">No hay comidas registradas.</p> : null}
+            {profile.diet.slice(0, 6).map((entry) => (
+              <div key={entry.id} className="rounded-md bg-[#f7f5ef] p-3 text-sm">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold">{entry.consumed_food || "Comida registrada"}</p>
+                    <p className="mt-1 text-[#5d6959]">{formatMealType(entry.meal_type)} - {entry.recommended_meal || "Sin pauta"} - {formatFoodDate(entry.consumed_date ?? entry.created_at)}</p>
+                  </div>
+                  <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-[#37513b]">{entry.adherence_percentage}% adherencia</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#5d6959] sm:grid-cols-5">
+                  <span>{formatNumber(entry.quantity_g)} g</span>
+                  <span>{formatNumber(entry.calories_kcal)} kcal</span>
+                  <span>P {formatNumber(entry.protein_g)}g</span>
+                  <span>C {formatNumber(entry.carbs_g)}g</span>
+                  <span>G {formatNumber(entry.fat_g)}g</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </article>
   );
+}
+
+function formatNumber(value?: number | null) {
+  if (typeof value !== "number") return "-";
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function formatMealType(value?: string | null) {
+  const labels: Record<string, string> = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", agregados: "Agregados" };
+  return labels[value ?? ""] ?? "Agregados";
+}
+
+function formatFoodDate(value?: string | null) {
+  if (!value) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
 }
 
 function ProfileMetric({ label, value, detail }: { label: string; value: string; detail: string }) {

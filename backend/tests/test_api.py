@@ -1,4 +1,6 @@
+import json
 import unittest
+from unittest.mock import patch
 
 from app import create_app
 from app.config import TestConfig
@@ -600,8 +602,14 @@ class ApiTestCase(unittest.TestCase):
             json={
                 "plan_item_id": plan_item_id,
                 "recommended_meal": "Desayuno",
-                "consumed_food": "Avena con yogur y platano",
-                "adherence_percentage": 90,
+                "consumed_food": "Avena (80g), Yogur griego (100g)",
+                "meal_type": "desayuno",
+                "consumed_date": "2026-09-01",
+                "quantity_g": 180,
+                "calories_kcal": 216,
+                "protein_g": 14.4,
+                "carbs_g": 32.4,
+                "fat_g": 3.6,
                 "meals_completed": 1,
                 "total_meals": 1,
             },
@@ -612,7 +620,49 @@ class ApiTestCase(unittest.TestCase):
         diet = diet_response.get_json()["diet"]
         self.assertEqual(diet["plan_item_id"], plan_item_id)
         self.assertEqual(diet["recommended_meal"], "Desayuno")
-        self.assertEqual(diet["consumed_food"], "Avena con yogur y platano")
+        self.assertEqual(diet["consumed_food"], "Avena (80g), Yogur griego (100g)")
+        self.assertEqual(diet["adherence_percentage"], 50)
+        self.assertEqual(diet["meal_type"], "desayuno")
+        self.assertEqual(diet["consumed_date"], "2026-09-01")
+        self.assertEqual(diet["quantity_g"], 180)
+        self.assertEqual(diet["calories_kcal"], 216)
+        self.assertEqual(diet["protein_g"], 14.4)
+
+    def test_nutrition_search_uses_spanish_results_and_normalizes_names(self):
+        client_session = self.register("nutrition-search@example.com", "client", "Nutrition Search")
+        payload = {
+            "products": [
+                {
+                    "code": "123",
+                    "product_name_es": "Yogur griego natural",
+                    "brands": "Demo",
+                    "nutrition_grades": "b",
+                    "nutriments": {"proteins_100g": 8.5},
+                }
+            ]
+        }
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps(payload).encode("utf-8")
+
+        with patch("app.routes.nutrition.urlopen", return_value=FakeResponse()):
+            response = self.client.get(
+                "/api/nutrition/search?q=yogur",
+                headers=self.auth_header(client_session),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        product = response.get_json()["products"][0]
+        self.assertEqual(product["product_name"], "Yogur griego natural")
+        self.assertEqual(product["nutriscore_grade"], "b")
+        self.assertEqual(product["nutrition"]["protein_g_100g"], 8.5)
 
     def test_professional_can_create_session_for_assigned_client(self):
         professional = self.register("session-pro@example.com", "professional", "Coach")

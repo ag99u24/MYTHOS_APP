@@ -43,7 +43,36 @@ type WorkoutEntry = {
 type DietEntry = {
   id: number;
   plan_item_id?: number | null;
+  meal_type?: string | null;
+  consumed_date?: string | null;
   consumed_food?: string | null;
+  adherence_percentage: number;
+  quantity_g?: number | null;
+  calories_kcal?: number | null;
+  protein_g?: number | null;
+  carbs_g?: number | null;
+  fat_g?: number | null;
+  notes?: string | null;
+  created_at?: string | null;
+};
+
+type NutritionProduct = {
+  code?: string;
+  product_name?: string;
+  brands?: string;
+  nutrition?: {
+    calories_kcal_100g?: number;
+    protein_g_100g?: number;
+    carbs_g_100g?: number;
+    fat_g_100g?: number;
+    sugars_g_100g?: number;
+    salt_g_100g?: number;
+  };
+};
+
+type MealDraftItem = {
+  product: NutritionProduct;
+  quantity_g: number;
 };
 
 type PlanFormState = {
@@ -152,11 +181,25 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [trackingItemId, setTrackingItemId] = useState<number | null>(null);
+  const [dietEntries, setDietEntries] = useState<DietEntry[]>([]);
+  const [foodSearchByItem, setFoodSearchByItem] = useState<Record<number, string>>({});
+  const [foodResultsByItem, setFoodResultsByItem] = useState<Record<number, NutritionProduct[]>>({});
+  const [selectedFoodByItem, setSelectedFoodByItem] = useState<Record<number, NutritionProduct>>({});
+  const [mealDraftByItem, setMealDraftByItem] = useState<Record<number, MealDraftItem[]>>({});
+  const [isSearchingFood, setIsSearchingFood] = useState<number | null>(null);
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
   const clientNameById = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
   const isClient = user?.role === "client";
   const readablePlan = selectedPlan ?? (user?.role === "client" ? plans[0] ?? null : null);
+  const dietEntriesByItem = useMemo(() => {
+    const grouped = new Map<number, DietEntry[]>();
+    dietEntries.forEach((entry) => {
+      if (!entry.plan_item_id) return;
+      grouped.set(entry.plan_item_id, [...(grouped.get(entry.plan_item_id) ?? []), entry]);
+    });
+    return grouped;
+  }, [dietEntries]);
 
   const loadPlans = useCallback(async (activeToken = token) => {
     if (!activeToken) return;
@@ -192,6 +235,17 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
     }
   }, [token]);
 
+  const loadDietEntries = useCallback(async (activeToken = token) => {
+    if (!activeToken || user?.role !== "client") return;
+
+    try {
+      const response = await apiRequest<{ diet: DietEntry[] }>("/diet?per_page=100", { token: activeToken });
+      setDietEntries(response.diet);
+    } catch {
+      setDietEntries([]);
+    }
+  }, [token, user?.role]);
+
   useEffect(() => {
     void Promise.resolve().then(() => setUser(getStoredUser()));
   }, []);
@@ -203,6 +257,10 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
   useEffect(() => {
     if (token && user?.role === "professional") void Promise.resolve().then(() => loadClients(token));
   }, [loadClients, token, user?.role]);
+
+  useEffect(() => {
+    if (token && user?.role === "client") void Promise.resolve().then(() => loadDietEntries(token));
+  }, [loadDietEntries, token, user?.role]);
 
   function updateField(field: keyof PlanFormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -334,6 +392,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
     event.preventDefault();
     if (!token || !item.id) return;
 
+    const targetForm = event.currentTarget;
     const formData = new FormData(event.currentTarget);
     setTrackingItemId(item.id);
     setError("");
@@ -353,7 +412,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
           notes: String(formData.get("notes") || "") || null,
         },
       });
-      event.currentTarget.reset();
+      targetForm.reset();
       setSuccess("Entrenamiento registrado correctamente.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo registrar el entrenamiento.");
@@ -366,7 +425,14 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
     event.preventDefault();
     if (!token || !item.id) return;
 
+    const targetForm = event.currentTarget;
     const formData = new FormData(event.currentTarget);
+    const mealItems = item.id ? mealDraftByItem[item.id] ?? [] : [];
+    const totals = calculateMealTotals(mealItems);
+    if (mealItems.length === 0) {
+      setError("Agrega al menos un alimento a la comida antes de registrarla.");
+      return;
+    }
     setTrackingItemId(item.id);
     setError("");
     setSuccess("");
@@ -378,21 +444,94 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
         body: {
           plan_item_id: item.id,
           recommended_meal: item.title,
-          consumed_food: String(formData.get("consumed_food") || ""),
-          adherence_percentage: formData.get("adherence_percentage") ? Number(formData.get("adherence_percentage")) : 100,
-          meals_completed: formData.get("consumed_food") ? 1 : null,
+          consumed_food: mealItems.map((mealItem) => `${mealItem.product.product_name} (${mealItem.quantity_g}g)`).join(", "),
+          meal_type: formData.get("meal_type"),
+          consumed_date: formData.get("consumed_date"),
+          product_code: mealItems.map((mealItem) => mealItem.product.code).filter(Boolean).join(", ") || null,
+          brand: mealItems.map((mealItem) => mealItem.product.brands).filter(Boolean).join(", ") || null,
+          quantity_g: totals.quantity_g,
+          calories_kcal: totals.calories_kcal,
+          protein_g: totals.protein_g,
+          carbs_g: totals.carbs_g,
+          fat_g: totals.fat_g,
+          sugars_g: totals.sugars_g,
+          salt_g: totals.salt_g,
+          meals_completed: 1,
           total_meals: readablePlan?.items.length ?? null,
-          water_liters: formData.get("water_liters") ? Number(formData.get("water_liters")) : null,
           notes: String(formData.get("notes") || "") || null,
         },
       });
-      event.currentTarget.reset();
+      targetForm.reset();
+      if (item.id) {
+        setFoodSearchByItem((current) => ({ ...current, [item.id as number]: "" }));
+        setFoodResultsByItem((current) => ({ ...current, [item.id as number]: [] }));
+        setSelectedFoodByItem((current) => {
+          const next = { ...current };
+          delete next[item.id as number];
+          return next;
+        });
+        setMealDraftByItem((current) => ({ ...current, [item.id as number]: [] }));
+      }
+      await loadDietEntries(token);
       setSuccess("Comida registrada correctamente.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudo registrar la comida.");
     } finally {
       setTrackingItemId(null);
     }
+  }
+
+  async function searchFood(itemId: number) {
+    const query = foodSearchByItem[itemId]?.trim();
+    if (!token || !query || query.length < 2) {
+      setError("Escribe al menos 2 caracteres para buscar un alimento.");
+      return;
+    }
+
+    setIsSearchingFood(itemId);
+    setError("");
+
+    try {
+      const response = await apiRequest<{ products: NutritionProduct[] }>(`/nutrition/search?q=${encodeURIComponent(query)}`, { token });
+      setFoodResultsByItem((current) => ({ ...current, [itemId]: response.products ?? [] }));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo buscar el alimento.");
+    } finally {
+      setIsSearchingFood(null);
+    }
+  }
+
+  function addFoodToMeal(itemId: number, quantityValue: FormDataEntryValue | null) {
+    const selectedFood = selectedFoodByItem[itemId];
+    const quantity = Number(quantityValue);
+    if (!selectedFood) {
+      setError("Selecciona un alimento de la lista antes de agregarlo.");
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setError("Indica una cantidad valida en gramos.");
+      return;
+    }
+
+    setError("");
+    setMealDraftByItem((current) => ({
+      ...current,
+      [itemId]: [...(current[itemId] ?? []), { product: selectedFood, quantity_g: quantity }],
+    }));
+    setSelectedFoodByItem((current) => {
+      const next = { ...current };
+      delete next[itemId];
+      return next;
+    });
+    setFoodSearchByItem((current) => ({ ...current, [itemId]: "" }));
+    setFoodResultsByItem((current) => ({ ...current, [itemId]: [] }));
+  }
+
+  function removeFoodFromMeal(itemId: number, index: number) {
+    setMealDraftByItem((current) => ({
+      ...current,
+      [itemId]: (current[itemId] ?? []).filter((_, itemIndex) => itemIndex !== index),
+    }));
   }
 
   async function deletePlan(planId: number) {
@@ -638,15 +777,75 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                       {readablePlan.category === "Nutricion" ? (
                         <form className="mt-4 grid gap-3 rounded-md border border-[#d9d4c7] bg-white p-3" onSubmit={(event) => handleDietTracking(event, item)}>
                           <p className="text-sm font-semibold">Registrar lo comido</p>
-                          <textarea name="consumed_food" className="min-h-20 rounded-md border border-[#d9d4c7] px-3 py-2 text-sm" placeholder="Escribe lo que comiste en esta comida" required />
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <input name="adherence_percentage" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" placeholder="% cumplido" type="number" min="0" max="100" defaultValue={100} />
-                            <input name="water_liters" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" placeholder="Agua en litros" type="number" min="0" step="0.1" />
+                            <select name="meal_type" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" defaultValue="comida">
+                              <option value="desayuno">Desayuno</option>
+                              <option value="comida">Comida</option>
+                              <option value="cena">Cena</option>
+                              <option value="agregados">Agregados</option>
+                            </select>
+                            <input name="consumed_date" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
                           </div>
+                          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                            <input
+                              name="consumed_food"
+                              className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm"
+                              placeholder="Buscar alimento: pechuga de pollo..."
+                              required
+                              value={item.id ? foodSearchByItem[item.id] ?? "" : ""}
+                              onChange={(event) => item.id ? setFoodSearchByItem((current) => ({ ...current, [item.id as number]: event.target.value })) : undefined}
+                            />
+                            <button type="button" className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={() => item.id ? void searchFood(item.id) : undefined}>
+                              {isSearchingFood === item.id ? "Buscando..." : "Buscar"}
+                            </button>
+                          </div>
+                          {item.id && foodResultsByItem[item.id]?.length ? (
+                            <div className="grid max-h-44 gap-2 overflow-y-auto rounded-md bg-[#fbfaf7] p-2">
+                              {foodResultsByItem[item.id].slice(0, 5).map((product) => (
+                                <button
+                                  type="button"
+                                  key={product.code || product.product_name}
+                                  className={`rounded-md border p-3 text-left text-sm hover:bg-white ${selectedFoodByItem[item.id as number]?.code === product.code ? "border-[#a30000] bg-white" : "border-[#ece7dc]"}`}
+                                  onClick={() => {
+                                    setSelectedFoodByItem((current) => ({ ...current, [item.id as number]: product }));
+                                    setFoodSearchByItem((current) => ({ ...current, [item.id as number]: product.product_name ?? "" }));
+                                  }}
+                                >
+                                  <span className="font-semibold">{product.product_name}</span>
+                                  <span className="mt-1 block text-xs text-[#5d6959]">
+                                    {product.brands || "Marca no disponible"} · {formatMacro(product.nutrition?.calories_kcal_100g)} kcal / 100g · P {formatMacro(product.nutrition?.protein_g_100g)}g
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                            <input name="draft_quantity_g" className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" placeholder="Cantidad del alimento en gramos" type="number" min="1" step="1" />
+                            <button
+                              type="button"
+                              className="rounded-md bg-[#18201b] px-3 py-2 text-sm font-semibold text-white hover:bg-[#2c372f]"
+                              onClick={(event) => {
+                                const form = event.currentTarget.form;
+                                const quantityInput = form?.elements.namedItem("draft_quantity_g") as HTMLInputElement | null;
+                                if (item.id) addFoodToMeal(item.id, quantityInput?.value ?? null);
+                                if (quantityInput) quantityInput.value = "";
+                              }}
+                            >
+                              Añadir alimento
+                            </button>
+                          </div>
+                          {item.id ? (
+                            <MealDraftList
+                              items={mealDraftByItem[item.id] ?? []}
+                              onRemove={(index) => removeFoodFromMeal(item.id as number, index)}
+                            />
+                          ) : null}
                           <textarea name="notes" className="min-h-16 rounded-md border border-[#d9d4c7] px-3 py-2 text-sm" placeholder="Notas o sensaciones" />
+                          <p className="text-xs leading-5 text-[#64715f]">Mythos calculara la adherencia comparando tu registro con la comida recomendada.</p>
                           <button className="w-fit rounded-md bg-[#37513b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-70" disabled={trackingItemId === item.id}>
                             {trackingItemId === item.id ? "Guardando..." : "Guardar comida"}
                           </button>
+                          {item.id ? <MealLogList entries={dietEntriesByItem.get(item.id) ?? []} /> : null}
                         </form>
                       ) : null}
                     </div>
@@ -663,4 +862,121 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
       )}
     </section>
   );
+}
+
+function MealLogList({ entries }: { entries: DietEntry[] }) {
+  if (entries.length === 0) {
+    return <p className="rounded-md bg-[#fbfaf7] p-3 text-xs text-[#64715f]">Aun no hay comidas ingeridas registradas para este bloque.</p>;
+  }
+
+  const groupedByDate = entries.reduce<Record<string, DietEntry[]>>((groups, entry) => {
+    const dateKey = entry.consumed_date ?? entry.created_at?.slice(0, 10) ?? "Sin fecha";
+    groups[dateKey] = [...(groups[dateKey] ?? []), entry];
+    return groups;
+  }, {});
+
+  return (
+    <div className="grid gap-3 border-t border-[#ece7dc] pt-3">
+      <p className="text-sm font-semibold">Comidas ingeridas</p>
+      {Object.entries(groupedByDate).map(([date, dateEntries]) => (
+        <div key={date} className="rounded-md bg-[#fbfaf7] p-3">
+          <p className="text-xs font-semibold uppercase text-[#a30000]">{formatFoodDate(date)}</p>
+          <div className="mt-2 grid gap-2">
+            {dateEntries.map((entry) => (
+              <div key={entry.id} className="rounded-md border border-[#ece7dc] bg-white p-3 text-sm">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold">{entry.consumed_food}</p>
+                    <p className="mt-1 text-xs text-[#64715f]">{formatMealType(entry.meal_type)} · {formatMacro(entry.quantity_g)} g · Adherencia {entry.adherence_percentage}%</p>
+                  </div>
+                  <span className="rounded-md bg-[#f7f5ef] px-2 py-1 text-xs font-semibold text-[#37513b]">{formatMacro(entry.calories_kcal)} kcal</span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-[#5d6959]">
+                  <span>P {formatMacro(entry.protein_g)}g</span>
+                  <span>C {formatMacro(entry.carbs_g)}g</span>
+                  <span>G {formatMacro(entry.fat_g)}g</span>
+                </div>
+                {entry.notes ? <p className="mt-2 text-xs leading-5 text-[#3d493f]">{entry.notes}</p> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MealDraftList({ items, onRemove }: { items: MealDraftItem[]; onRemove: (index: number) => void }) {
+  if (items.length === 0) {
+    return <p className="rounded-md bg-[#fbfaf7] p-3 text-xs text-[#64715f]">Agrega varios alimentos y luego registra la comida completa.</p>;
+  }
+
+  const totals = calculateMealTotals(items);
+
+  return (
+    <div className="grid gap-3 rounded-md bg-[#fbfaf7] p-3">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold">Comida preparada</p>
+        <span className="text-xs font-semibold text-[#37513b]">{items.length} alimentos · {formatMacro(totals.calories_kcal)} kcal</span>
+      </div>
+      <div className="grid gap-2">
+        {items.map((item, index) => (
+          <div key={`${item.product.code || item.product.product_name}-${index}`} className="flex items-center justify-between gap-3 rounded-md border border-[#ece7dc] bg-white p-2 text-sm">
+            <div className="min-w-0">
+              <p className="truncate font-semibold">{item.product.product_name}</p>
+              <p className="text-xs text-[#64715f]">{item.quantity_g}g · {formatMacro(calculateFoodMacro(item.product.nutrition?.calories_kcal_100g, item.quantity_g))} kcal</p>
+            </div>
+            <button type="button" className="rounded-md border border-[#f1b5a4] px-2 py-1 text-xs font-semibold text-[#963519] hover:bg-[#fff4ef]" onClick={() => onRemove(index)}>
+              Quitar
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-xs text-[#5d6959]">
+        <span>P {formatMacro(totals.protein_g)}g</span>
+        <span>C {formatMacro(totals.carbs_g)}g</span>
+        <span>G {formatMacro(totals.fat_g)}g</span>
+      </div>
+    </div>
+  );
+}
+
+function calculateFoodMacro(valuePer100g?: number, quantityG?: number) {
+  if (typeof valuePer100g !== "number" || typeof quantityG !== "number") return null;
+  return Number(((valuePer100g * quantityG) / 100).toFixed(2));
+}
+
+function calculateMealTotals(items: MealDraftItem[]) {
+  return items.reduce(
+    (totals, item) => ({
+      quantity_g: totals.quantity_g + item.quantity_g,
+      calories_kcal: totals.calories_kcal + (calculateFoodMacro(item.product.nutrition?.calories_kcal_100g, item.quantity_g) ?? 0),
+      protein_g: totals.protein_g + (calculateFoodMacro(item.product.nutrition?.protein_g_100g, item.quantity_g) ?? 0),
+      carbs_g: totals.carbs_g + (calculateFoodMacro(item.product.nutrition?.carbs_g_100g, item.quantity_g) ?? 0),
+      fat_g: totals.fat_g + (calculateFoodMacro(item.product.nutrition?.fat_g_100g, item.quantity_g) ?? 0),
+      sugars_g: totals.sugars_g + (calculateFoodMacro(item.product.nutrition?.sugars_g_100g, item.quantity_g) ?? 0),
+      salt_g: totals.salt_g + (calculateFoodMacro(item.product.nutrition?.salt_g_100g, item.quantity_g) ?? 0),
+    }),
+    { quantity_g: 0, calories_kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0, sugars_g: 0, salt_g: 0 }
+  );
+}
+
+function formatMacro(value?: number | null) {
+  if (typeof value !== "number") return "-";
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function formatMealType(value?: string | null) {
+  const labels: Record<string, string> = {
+    desayuno: "Desayuno",
+    comida: "Comida",
+    cena: "Cena",
+    agregados: "Agregados",
+  };
+  return labels[value ?? ""] ?? "Agregados";
+}
+
+function formatFoodDate(value: string) {
+  if (value === "Sin fecha") return value;
+  return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
 }
