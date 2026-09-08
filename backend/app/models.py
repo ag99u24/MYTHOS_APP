@@ -117,14 +117,23 @@ class PlanItem(db.Model, TimestampMixin):
 
     plan: Mapped["Plan"] = relationship("Plan", back_populates="items")
 
-    def to_dict(self):
-        return {
+    def to_dict(self, include_plan=False):
+        data = {
             "id": self.id,
+            "plan_id": self.plan_id,
             "day": self.day,
             "title": self.title,
             "details": self.details,
             "sort_order": self.sort_order,
         }
+        if include_plan and self.plan:
+            data["plan"] = {
+                "id": self.plan.id,
+                "title": self.plan.title,
+                "category": self.plan.category,
+                "status": self.plan.status,
+            }
+        return data
 
 
 class ProgressEntry(db.Model, TimestampMixin):
@@ -192,6 +201,7 @@ class WorkoutEntry(db.Model, TimestampMixin):
             "id": self.id,
             "client_id": self.client_id,
             "plan_item_id": self.plan_item_id,
+            "plan_item": self.plan_item.to_dict(include_plan=True) if self.plan_item else None,
             "title": self.title,
             "workout_type": self.workout_type,
             "duration_minutes": self.duration_minutes,
@@ -236,6 +246,7 @@ class DietEntry(db.Model, TimestampMixin):
             "id": self.id,
             "client_id": self.client_id,
             "plan_item_id": self.plan_item_id,
+            "plan_item": self.plan_item.to_dict(include_plan=True) if self.plan_item else None,
             "adherence_percentage": self.adherence_percentage,
             "meal_type": self.meal_type,
             "consumed_date": self.consumed_date.isoformat() if self.consumed_date else None,

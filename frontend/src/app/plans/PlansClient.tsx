@@ -788,12 +788,17 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                           </div>
                           <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                             <input
-                              name="consumed_food"
+                              name="food_search"
                               className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm"
-                              placeholder="Buscar alimento: pechuga de pollo..."
-                              required
+                              placeholder="Buscar alimento para añadir: pechuga de pollo..."
                               value={item.id ? foodSearchByItem[item.id] ?? "" : ""}
                               onChange={(event) => item.id ? setFoodSearchByItem((current) => ({ ...current, [item.id as number]: event.target.value })) : undefined}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  if (item.id) void searchFood(item.id);
+                                }
+                              }}
                             />
                             <button type="button" className="rounded-md border border-[#d9d4c7] px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={() => item.id ? void searchFood(item.id) : undefined}>
                               {isSearchingFood === item.id ? "Buscando..." : "Buscar"}
@@ -801,7 +806,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                           </div>
                           {item.id && foodResultsByItem[item.id]?.length ? (
                             <div className="grid max-h-44 gap-2 overflow-y-auto rounded-md bg-[#fbfaf7] p-2">
-                              {foodResultsByItem[item.id].slice(0, 5).map((product) => (
+                              {foodResultsByItem[item.id].slice(0, 12).map((product) => (
                                 <button
                                   type="button"
                                   key={product.code || product.product_name}

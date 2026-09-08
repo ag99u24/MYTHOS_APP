@@ -221,12 +221,12 @@ export function ProgressClient() {
   }
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-      <div className="grid gap-6">
+    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
+      <div className="grid min-w-0 gap-6">
         {error ? <FormMessage type="error">{error}</FormMessage> : null}
         {success ? <FormMessage type="success">{success}</FormMessage> : null}
 
-        <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
+        <article className="overflow-hidden rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold">Cliente</h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_auto]">
             <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={clientId} onChange={(event) => { setClientId(event.target.value); resetForm(); }}>
@@ -246,27 +246,26 @@ export function ProgressClient() {
         <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold">{editingEntry ? "Editar medicion" : "Registrar medicion corporal"}</h2>
           <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <MeasurementInput label="Peso kg" value={form.weight} onChange={(value) => updateField("weight", value)} />
               <MeasurementInput label="Grasa %" value={form.body_fat} onChange={(value) => updateField("body_fat", value)} />
               <MeasurementInput label="Musculo %" value={form.muscle_percentage} onChange={(value) => updateField("muscle_percentage", value)} />
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
               <MeasurementInput label="Grasa visceral" value={form.visceral_fat} onChange={(value) => updateField("visceral_fat", value)} />
               <MeasurementInput label="Pecho cm" value={form.chest_cm} onChange={(value) => updateField("chest_cm", value)} />
               <MeasurementInput label="Cintura cm" value={form.waist_cm} onChange={(value) => updateField("waist_cm", value)} />
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
               <MeasurementInput label="Cadera cm" value={form.hip_cm} onChange={(value) => updateField("hip_cm", value)} />
               <MeasurementInput label="Brazo cm" value={form.arm_cm} onChange={(value) => updateField("arm_cm", value)} />
               <MeasurementInput label="Muslo cm" value={form.thigh_cm} onChange={(value) => updateField("thigh_cm", value)} />
             </div>
-            <select className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3" value={form.mood} onChange={(event) => updateField("mood", event.target.value)}>
-              <option>Excelente</option>
-              <option>Bien</option>
-              <option>Cansado</option>
-              <option>Con molestias</option>
-            </select>
+            <label className="grid min-w-0 gap-2 text-sm font-semibold text-[#3d493f]">
+              Estado del cliente
+              <select className="h-11 w-full rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 font-normal" value={form.mood} onChange={(event) => updateField("mood", event.target.value)}>
+                <option>Excelente</option>
+                <option>Bien</option>
+                <option>Cansado</option>
+                <option>Con molestias</option>
+              </select>
+            </label>
             <textarea className="min-h-24 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3" placeholder="Notas de evaluacion, postura, energia, recomendaciones..." value={form.notes} onChange={(event) => updateField("notes", event.target.value)} />
             <div className="flex flex-col gap-3 sm:flex-row">
               <button disabled={isSaving || !clientId} className="rounded-md bg-[#a30000] px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70">
@@ -280,7 +279,7 @@ export function ProgressClient() {
         </article>
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid min-w-0 gap-6">
         <article className="rounded-lg border border-[#d9d4c7] bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold">Resumen corporal</h2>
           <p className="mt-2 text-sm text-[#5d6959]">{selectedClient ? selectedClient.name : "Selecciona un cliente para revisar sus mediciones."}</p>
@@ -302,7 +301,7 @@ export function ProgressClient() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-[#a30000]">{formatDate(entry.created_at)}</p>
-                    <h3 className="mt-1 text-lg font-semibold">{formatValue(entry.weight, "kg")} · {entry.mood ?? "Sin estado"}</h3>
+                    <h3 className="mt-1 text-lg font-semibold">{formatValue(entry.weight, "kg")} - {entry.mood ?? "Sin estado"}</h3>
                   </div>
                   <div className="flex gap-2">
                     <button className="rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={() => startEdit(entry)}>
@@ -335,9 +334,9 @@ export function ProgressClient() {
 
 function MeasurementInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-[#3d493f]">
+    <label className="grid min-w-0 gap-2 text-sm font-semibold text-[#3d493f]">
       {label}
-      <input className="h-11 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 font-normal" type="number" min="0" step="0.1" value={value} onChange={(event) => onChange(event.target.value)} />
+      <input className="h-11 w-full rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 font-normal" type="number" min="0" step="0.1" value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }

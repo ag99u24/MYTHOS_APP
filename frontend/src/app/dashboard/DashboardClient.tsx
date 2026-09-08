@@ -63,8 +63,8 @@ export function DashboardClient() {
   const draftPlans = plans.filter((plan) => plan.status === "draft");
   const nutritionPlans = plans.filter((plan) => plan.category.toLowerCase() === "nutricion");
   const trainingPlans = plans.filter((plan) => plan.category.toLowerCase() === "entrenamiento");
-  const averageAdherence = diet.length ? Math.round(diet.reduce((total, entry) => total + entry.adherence_percentage, 0) / diet.length) : 0;
-  const lowAdherenceEntries = diet.filter((entry) => entry.adherence_percentage < 70);
+  const averageAdherence = user?.role === "client" && diet.length ? Math.round(diet.reduce((total, entry) => total + entry.adherence_percentage, 0) / diet.length) : 0;
+  const lowAdherenceEntries = user?.role === "client" ? diet.filter((entry) => entry.adherence_percentage < 70) : [];
   const attentionItems = [
     ...(unreadMessages > 0
       ? [{ id: "messages", title: "Mensajes pendientes", detail: `${unreadMessages} mensajes sin leer`, href: "/messages" }]
@@ -72,8 +72,8 @@ export function DashboardClient() {
     ...lowAdherenceEntries.slice(0, 2).map((entry) => ({
       id: `diet-alert-${entry.id}`,
       title: "Adherencia baja",
-      detail: `Cliente #${entry.client_id} registro ${entry.adherence_percentage}%`,
-      href: `/clients?q=${entry.client_id}`,
+      detail: `Tu ultimo registro quedo en ${entry.adherence_percentage}%`,
+      href: "/nutrition-plans",
     })),
   ];
   const upcomingSessions = sessions
@@ -93,12 +93,14 @@ export function DashboardClient() {
     });
   }
   const recentActivity = [
-    ...diet.slice(0, 3).map((entry) => ({
-      id: `diet-${entry.id}`,
-      title: `Dieta ${entry.adherence_percentage}%`,
-      detail: `${entry.meals_completed ?? "-"} / ${entry.total_meals ?? "-"} comidas`,
-      date: entry.created_at,
-    })),
+    ...(user?.role === "client"
+      ? diet.slice(0, 3).map((entry) => ({
+          id: `diet-${entry.id}`,
+          title: `Dieta ${entry.adherence_percentage}%`,
+          detail: `${entry.meals_completed ?? "-"} / ${entry.total_meals ?? "-"} comidas`,
+          date: entry.created_at,
+        }))
+      : []),
     ...workouts.slice(0, 3).map((entry) => ({
       id: `workout-${entry.id}`,
       title: entry.title,
@@ -209,7 +211,7 @@ export function DashboardClient() {
       </section>
 
       <section className="mt-4 grid gap-4 md:grid-cols-3">
-        <StatCard label="Adherencia dieta" value={diet.length ? `${averageAdherence}%` : "-"} detail={`${diet.length} registros de dieta`} />
+        {user?.role === "client" ? <StatCard label="Adherencia dieta" value={diet.length ? `${averageAdherence}%` : "-"} detail={`${diet.length} registros de dieta`} /> : null}
         <StatCard label="Entrenamientos" value={String(workouts.length)} detail="Registros completados" />
         <StatCard label="Próximas sesiones" value={String(upcomingSessions.length)} detail={upcomingSessions[0] ? new Date(upcomingSessions[0].scheduled_at).toLocaleDateString("es-ES") : "Sin sesiones programadas"} />
         <StatCard label="Mensajes pendientes" value={String(unreadMessages)} detail="Sin leer en el chat" />

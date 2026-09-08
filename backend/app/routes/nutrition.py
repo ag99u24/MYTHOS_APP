@@ -12,19 +12,21 @@ OFF_FIELDS = (
     "nutriscore_grade,nutrition_grades,image_front_small_url,nutriments"
 )
 QUERY_FALLBACKS = {
-    "pechuga de pollo": "chicken breast",
-    "pollo": "chicken",
-    "arroz": "rice",
-    "avena": "oats",
-    "huevo": "egg",
-    "huevos": "eggs",
-    "atun": "tuna",
-    "atún": "tuna",
-    "patata": "potato",
-    "papa": "potato",
-    "platano": "banana",
-    "plátano": "banana",
+    "pechuga de pollo": ["chicken breast", "pollo", "chicken"],
+    "pollo": ["chicken"],
+    "arroz": ["rice"],
+    "avena": ["oats"],
+    "huevo": ["egg"],
+    "huevos": ["eggs"],
+    "atun": ["tuna"],
+    "atún": ["tuna"],
+    "patata": ["potato"],
+    "papa": ["potato"],
+    "platano": ["banana"],
+    "plátano": ["banana"],
 }
+STOP_WORDS = {"de", "del", "la", "el", "los", "las", "con", "sin", "para", "y"}
+MAX_PRODUCTS = 30
 
 
 def fetch_open_food_facts(query, host):
@@ -34,9 +36,10 @@ def fetch_open_food_facts(query, host):
             "search_simple": "1",
             "action": "process",
             "json": "1",
-            "page_size": "12",
+            "page_size": str(MAX_PRODUCTS),
             "lc": "es",
             "cc": "es",
+            "sort_by": "popularity_key",
             "fields": OFF_FIELDS,
         }
     )
@@ -70,6 +73,29 @@ def normalize_product(product):
     }
 
 
+def build_query_variants(query):
+    normalized_query = query.lower()
+    variants = [query]
+
+    for fallback_query in QUERY_FALLBACKS.get(normalized_query, []):
+        if fallback_query not in variants:
+            variants.append(fallback_query)
+
+    for word in normalized_query.replace(",", " ").split():
+        if len(word) > 3 and word not in STOP_WORDS and word not in variants:
+            variants.append(word)
+
+    return variants
+
+
+def product_identity(product):
+    code = product.get("code")
+    if code:
+        return f"code:{code}"
+    name = product.get("product_name_es") or product.get("product_name") or product.get("generic_name_es") or product.get("generic_name") or ""
+    return f"name:{name.strip().lower()}"
+
+
 @nutrition_bp.get("/search")
 @jwt_required()
 def search_products():
@@ -79,21 +105,25 @@ def search_products():
         return jsonify({"message": "Search query must be at least 2 characters long"}), 400
 
     products = []
-    queries = [query]
-    fallback_query = QUERY_FALLBACKS.get(query.lower())
-    if fallback_query and fallback_query not in queries:
-        queries.append(fallback_query)
+    seen_products = set()
 
-    for active_query in queries:
+    for active_query in build_query_variants(query):
         for host in ["es.openfoodfacts.org", "world.openfoodfacts.org"]:
             try:
                 payload = fetch_open_food_facts(active_query, host)
-                products = payload.get("products", [])
-                if products:
-                    break
+                for product in payload.get("products", []):
+                    identity = product_identity(product)
+                    if identity in seen_products:
+                        continue
+                    seen_products.add(identity)
+                    products.append(product)
+                    if len(products) >= MAX_PRODUCTS:
+                        break
             except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
                 continue
-        if products:
+            if len(products) >= MAX_PRODUCTS:
+                break
+        if len(products) >= MAX_PRODUCTS:
             break
 
     return jsonify({"products": [normalize_product(product) for product in products]})

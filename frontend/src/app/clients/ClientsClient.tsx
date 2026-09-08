@@ -21,10 +21,38 @@ type Plan = {
   items: Array<{ id?: number; title: string }>;
 };
 
+type TrackedPlanItem = {
+  id: number;
+  plan_id: number;
+  day: string;
+  title: string;
+  details?: string | null;
+  plan?: {
+    id: number;
+    title: string;
+    category: string;
+    status: string;
+  } | null;
+};
+
 type ProgressEntry = { id: number; weight?: number | null; body_fat?: number | null; mood?: string | null; created_at?: string | null };
-type WorkoutEntry = { id: number; title: string; workout_type?: string | null; duration_minutes?: number | null; intensity?: string | null; created_at?: string | null };
+type WorkoutEntry = {
+  id: number;
+  title: string;
+  plan_item_id?: number | null;
+  plan_item?: TrackedPlanItem | null;
+  workout_type?: string | null;
+  duration_minutes?: number | null;
+  sets_completed?: number | null;
+  reps_completed?: number | null;
+  intensity?: string | null;
+  notes?: string | null;
+  created_at?: string | null;
+};
 type DietEntry = {
   id: number;
+  plan_item_id?: number | null;
+  plan_item?: TrackedPlanItem | null;
   adherence_percentage: number;
   meal_type?: string | null;
   consumed_date?: string | null;
@@ -318,7 +346,7 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
         <div className="mt-5 grid gap-4 lg:grid-cols-4">
           <ProfileMetric label="Planes activos" value={String(activePlans.length)} detail={`${profile.plans.length} planes totales`} />
           <ProfileMetric label="Dieta" value={latestDiet ? `${latestDiet.adherence_percentage}%` : "-"} detail={latestDiet ? `${latestDiet.meals_completed ?? "-"} / ${latestDiet.total_meals ?? "-"} comidas` : "Sin registros"} />
-          <ProfileMetric label="Entrenamiento" value={latestWorkout ? latestWorkout.title : "-"} detail={latestWorkout ? `${latestWorkout.duration_minutes ?? "-"} min - ${latestWorkout.intensity ?? "-"}` : "Sin registros"} />
+          <ProfileMetric label="Entrenamiento" value={latestWorkout ? latestWorkout.title : "-"} detail={latestWorkout ? `${latestWorkout.sets_completed ?? "-"} series - ${latestWorkout.reps_completed ?? "-"} reps` : "Sin registros"} />
           <ProfileMetric label="Próxima sesión" value={nextSession ? nextSession.title : "-"} detail={nextSession ? new Date(nextSession.scheduled_at).toLocaleString("es-ES") : "Sin sesiones"} />
         </div>
       ) : null}
@@ -341,8 +369,8 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
           <div className="rounded-md border border-[#ece7dc] p-4">
             <h3 className="font-semibold">Última actividad</h3>
             <div className="mt-3 grid gap-2 text-sm">
-              <ActivityLine label="Dieta" value={latestDiet ? `${latestDiet.adherence_percentage}% cumplimiento` : "Sin registros"} date={latestDiet?.created_at} />
-              <ActivityLine label="Entreno" value={latestWorkout ? latestWorkout.title : "Sin registros"} date={latestWorkout?.created_at} />
+              <ActivityLine label="Dieta" value={latestDiet ? `${latestDiet.adherence_percentage}% adherencia a ${formatGuideLabel(latestDiet.plan_item, latestDiet.recommended_meal)}` : "Sin registros"} date={latestDiet?.created_at} />
+              <ActivityLine label="Entreno" value={latestWorkout ? `${latestWorkout.title} sobre ${formatGuideLabel(latestWorkout.plan_item)}` : "Sin registros"} date={latestWorkout?.created_at} />
               <ActivityLine label="Progreso" value={latestProgress ? `Peso ${latestProgress.weight ?? "-"} kg` : "Sin registros"} date={latestProgress?.created_at} />
               <ActivityLine label="Sesión" value={nextSession ? `${nextSession.title} (${nextSession.session_type})` : "Sin sesiones"} date={nextSession?.scheduled_at} />
             </div>
@@ -360,7 +388,8 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-semibold">{entry.consumed_food || "Comida registrada"}</p>
-                    <p className="mt-1 text-[#5d6959]">{formatMealType(entry.meal_type)} - {entry.recommended_meal || "Sin pauta"} - {formatFoodDate(entry.consumed_date ?? entry.created_at)}</p>
+                    <p className="mt-1 text-[#5d6959]">{formatMealType(entry.meal_type)} - {formatGuideLabel(entry.plan_item, entry.recommended_meal)} - {formatFoodDate(entry.consumed_date ?? entry.created_at)}</p>
+                    {entry.plan_item?.details ? <p className="mt-1 text-xs text-[#64715f]">Pauta guia: {entry.plan_item.details}</p> : null}
                   </div>
                   <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-[#37513b]">{entry.adherence_percentage}% adherencia</span>
                 </div>
@@ -376,8 +405,37 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
           </div>
         </div>
       ) : null}
+
+      {!isLoading && profile ? (
+        <div className="mt-5 rounded-md border border-[#ece7dc] p-4">
+          <h3 className="font-semibold">Registros de entrenamiento</h3>
+          <div className="mt-3 grid gap-2">
+            {profile.workouts.length === 0 ? <p className="text-sm text-[#5d6959]">No hay entrenamientos registrados.</p> : null}
+            {profile.workouts.slice(0, 6).map((entry) => (
+              <div key={entry.id} className="rounded-md bg-[#f7f5ef] p-3 text-sm">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold">{entry.title}</p>
+                    <p className="mt-1 text-[#5d6959]">{formatGuideLabel(entry.plan_item)} - {entry.intensity || "Intensidad sin indicar"} - {formatFoodDate(entry.created_at)}</p>
+                    {entry.plan_item?.details ? <p className="mt-1 text-xs text-[#64715f]">Guia del entrenador: {entry.plan_item.details}</p> : null}
+                    {entry.notes ? <p className="mt-1 text-xs text-[#64715f]">Notas: {entry.notes}</p> : null}
+                  </div>
+                  <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-[#37513b]">{entry.sets_completed ?? "-"} series · {entry.reps_completed ?? "-"} reps</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </article>
   );
+}
+
+function formatGuideLabel(planItem?: TrackedPlanItem | null, fallback?: string | null) {
+  if (planItem) {
+    return `${planItem.plan?.title ?? "Plan asignado"} / ${planItem.day}: ${planItem.title}`;
+  }
+  return fallback || "Sin pauta asociada";
 }
 
 function formatNumber(value?: number | null) {

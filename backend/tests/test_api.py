@@ -572,6 +572,8 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(workout_response.status_code, 201)
         workout = workout_response.get_json()["workout"]
         self.assertEqual(workout["plan_item_id"], plan_item_id)
+        self.assertEqual(workout["plan_item"]["title"], "Press banca")
+        self.assertEqual(workout["plan_item"]["plan"]["title"], "Fuerza base")
         self.assertEqual(workout["sets_completed"], 4)
         self.assertEqual(workout["reps_completed"], 32)
 
@@ -619,6 +621,8 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(diet_response.status_code, 201)
         diet = diet_response.get_json()["diet"]
         self.assertEqual(diet["plan_item_id"], plan_item_id)
+        self.assertEqual(diet["plan_item"]["title"], "Desayuno")
+        self.assertEqual(diet["plan_item"]["plan"]["title"], "Dieta rendimiento")
         self.assertEqual(diet["recommended_meal"], "Desayuno")
         self.assertEqual(diet["consumed_food"], "Avena (80g), Yogur griego (100g)")
         self.assertEqual(diet["adherence_percentage"], 50)
@@ -663,6 +667,40 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(product["product_name"], "Yogur griego natural")
         self.assertEqual(product["nutriscore_grade"], "b")
         self.assertEqual(product["nutrition"]["protein_g_100g"], 8.5)
+
+    def test_nutrition_search_accumulates_unique_fallback_results(self):
+        client_session = self.register("nutrition-search-fallback@example.com", "client", "Nutrition Search")
+        payloads = [
+            {"products": [{"code": "123", "product_name_es": "Pechuga de pollo", "nutriments": {}}]},
+            {"products": [{"code": "123", "product_name_es": "Pechuga de pollo", "nutriments": {}}]},
+            {"products": [{"code": "456", "product_name": "Chicken breast", "nutriments": {}}]},
+        ]
+
+        class FakeResponse:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps(self.payload).encode("utf-8")
+
+        def fake_urlopen(*_args, **_kwargs):
+            return FakeResponse(payloads.pop(0) if payloads else {"products": []})
+
+        with patch("app.routes.nutrition.urlopen", side_effect=fake_urlopen):
+            response = self.client.get(
+                "/api/nutrition/search?q=pechuga%20de%20pollo",
+                headers=self.auth_header(client_session),
+            )
+
+        products = response.get_json()["products"]
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([product["code"] for product in products], ["123", "456"])
 
     def test_professional_can_create_session_for_assigned_client(self):
         professional = self.register("session-pro@example.com", "professional", "Coach")
