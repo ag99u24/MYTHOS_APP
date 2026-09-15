@@ -78,6 +78,7 @@ cd backend
 cp .env.example .env
 python -m pip install -r requirements.txt
 flask --app run.py db upgrade
+flask --app run.py seed-foods
 flask --app run.py seed-demo
 python run.py
 ```
@@ -126,6 +127,13 @@ Para regenerar datos demo:
 ```bash
 cd backend
 flask --app run.py seed-demo
+```
+
+Para cargar o actualizar el banco de alimentos de Mythos:
+
+```bash
+cd backend
+flask --app run.py seed-foods
 ```
 
 ## Variables de entorno

@@ -86,6 +86,7 @@ def create_app(config_class=Config):
 
     @app.cli.command("seed-demo")
     def seed_demo():
+        from app.food_seed import seed_foods
         from app.models import (
             ChatMessage,
             ClientAssignment,
@@ -99,6 +100,7 @@ def create_app(config_class=Config):
         )
 
         db.create_all()
+        seed_foods()
 
         professional = User.query.filter_by(email="coach@mythos.demo").first()
         if not professional:
@@ -186,5 +188,13 @@ def create_app(config_class=Config):
         print("Demo data ready.")
         print("Professional: coach@mythos.demo / password123")
         print("Client: cliente@mythos.demo / password123")
+
+    @app.cli.command("seed-foods")
+    def seed_foods_command():
+        from app.food_seed import seed_foods
+
+        db.create_all()
+        result = seed_foods()
+        print(f"Mythos foods ready. Created: {result['created']}. Updated: {result['updated']}. Total: {result['total']}.")
 
     return app

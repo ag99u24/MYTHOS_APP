@@ -12,6 +12,10 @@ type PlanItem = {
   day: string;
   title: string;
   details?: string | null;
+  target_calories_kcal?: number | null;
+  target_protein_g?: number | null;
+  target_carbs_g?: number | null;
+  target_fat_g?: number | null;
   sort_order?: number;
 };
 
@@ -23,6 +27,10 @@ type Plan = {
   status: string;
   start_date?: string | null;
   end_date?: string | null;
+  target_calories_kcal?: number | null;
+  target_protein_g?: number | null;
+  target_carbs_g?: number | null;
+  target_fat_g?: number | null;
   professional_id: number;
   client_id: number;
   items: PlanItem[];
@@ -75,6 +83,22 @@ type MealDraftItem = {
   quantity_g: number;
 };
 
+type MenuSuggestion = {
+  title: string;
+  items: Array<MealDraftItem & {
+    calories_kcal: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+  }>;
+  totals: {
+    calories_kcal: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+  };
+};
+
 type PlanFormState = {
   title: string;
   description: string;
@@ -83,10 +107,18 @@ type PlanFormState = {
   client_id: string;
   start_date: string;
   end_date: string;
+  target_calories_kcal: string;
+  target_protein_g: string;
+  target_carbs_g: string;
+  target_fat_g: string;
   items: Array<{
     day: string;
     title: string;
     details: string;
+    target_calories_kcal: string;
+    target_protein_g: string;
+    target_carbs_g: string;
+    target_fat_g: string;
   }>;
 };
 
@@ -158,7 +190,11 @@ const emptyForm: PlanFormState = {
   client_id: "",
   start_date: "",
   end_date: "",
-  items: [{ day: "Lunes", title: "", details: "" }],
+  target_calories_kcal: "",
+  target_protein_g: "",
+  target_carbs_g: "",
+  target_fat_g: "",
+  items: [{ day: "Lunes", title: "", details: "", target_calories_kcal: "", target_protein_g: "", target_carbs_g: "", target_fat_g: "" }],
 };
 
 export function PlansClient({ mode = "all" }: PlansClientProps) {
@@ -187,6 +223,8 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
   const [selectedFoodByItem, setSelectedFoodByItem] = useState<Record<number, NutritionProduct>>({});
   const [mealDraftByItem, setMealDraftByItem] = useState<Record<number, MealDraftItem[]>>({});
   const [isSearchingFood, setIsSearchingFood] = useState<number | null>(null);
+  const [suggestionsByItem, setSuggestionsByItem] = useState<Record<number, MenuSuggestion[]>>({});
+  const [isSuggestingItem, setIsSuggestingItem] = useState<number | null>(null);
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
   const clientNameById = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
@@ -278,20 +316,32 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
       client_id: String(plan.client_id),
       start_date: plan.start_date ?? "",
       end_date: plan.end_date ?? "",
+      target_calories_kcal: stringifyNumber(plan.target_calories_kcal),
+      target_protein_g: stringifyNumber(plan.target_protein_g),
+      target_carbs_g: stringifyNumber(plan.target_carbs_g),
+      target_fat_g: stringifyNumber(plan.target_fat_g),
       items: plan.items.length
-        ? plan.items.map((item) => ({ day: item.day, title: item.title, details: item.details ?? "" }))
-        : [{ day: "Lunes", title: "", details: "" }],
+        ? plan.items.map((item) => ({
+            day: item.day,
+            title: item.title,
+            details: item.details ?? "",
+            target_calories_kcal: stringifyNumber(item.target_calories_kcal),
+            target_protein_g: stringifyNumber(item.target_protein_g),
+            target_carbs_g: stringifyNumber(item.target_carbs_g),
+            target_fat_g: stringifyNumber(item.target_fat_g),
+          }))
+        : [{ day: "Lunes", title: "", details: "", target_calories_kcal: "", target_protein_g: "", target_carbs_g: "", target_fat_g: "" }],
     });
   }
 
   function startNewPlan() {
     setSelectedPlan(null);
-    setForm({ ...emptyForm, category: fixedCategory || emptyForm.category, client_id: clientFilter, items: [{ day: "Lunes", title: "", details: "" }] });
+    setForm({ ...emptyForm, category: fixedCategory || emptyForm.category, client_id: clientFilter, items: [{ day: "Lunes", title: "", details: "", target_calories_kcal: "", target_protein_g: "", target_carbs_g: "", target_fat_g: "" }] });
     setSuccess("");
     setError("");
   }
 
-  function updateItem(index: number, field: "day" | "title" | "details", value: string) {
+  function updateItem(index: number, field: keyof PlanFormState["items"][number], value: string) {
     setForm((current) => ({
       ...current,
       items: current.items.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
@@ -299,7 +349,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
   }
 
   function addItem() {
-    setForm((current) => ({ ...current, items: [...current.items, { day: "General", title: "", details: "" }] }));
+    setForm((current) => ({ ...current, items: [...current.items, { day: "General", title: "", details: "", target_calories_kcal: "", target_protein_g: "", target_carbs_g: "", target_fat_g: "" }] }));
   }
 
   function removeItem(index: number) {
@@ -340,6 +390,10 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
         day: item.day || "General",
         title: item.title.trim(),
         details: item.details,
+        target_calories_kcal: parseOptionalNumber(item.target_calories_kcal),
+        target_protein_g: parseOptionalNumber(item.target_protein_g),
+        target_carbs_g: parseOptionalNumber(item.target_carbs_g),
+        target_fat_g: parseOptionalNumber(item.target_fat_g),
         sort_order: index,
       }));
 
@@ -363,6 +417,10 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
       client_id: Number(form.client_id),
       start_date: form.start_date || null,
       end_date: null,
+      target_calories_kcal: parseOptionalNumber(form.target_calories_kcal),
+      target_protein_g: parseOptionalNumber(form.target_protein_g),
+      target_carbs_g: parseOptionalNumber(form.target_carbs_g),
+      target_fat_g: parseOptionalNumber(form.target_fat_g),
       items: planItems,
     };
 
@@ -527,6 +585,55 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
     setFoodResultsByItem((current) => ({ ...current, [itemId]: [] }));
   }
 
+  async function loadMenuSuggestions(item: PlanItem) {
+    if (!token || !item.id) return;
+
+    if (!hasMealTargets(item)) {
+      setError("Esta comida necesita macros o calorias objetivo antes de generar opciones.");
+      return;
+    }
+
+    setIsSuggestingItem(item.id);
+    setError("");
+
+    try {
+      const response = await apiRequest<{ suggestions: MenuSuggestion[] }>("/nutrition/suggestions", {
+        method: "POST",
+        token,
+        body: {
+          meal_type: item.title,
+          target_calories_kcal: item.target_calories_kcal,
+          target_protein_g: item.target_protein_g,
+          target_carbs_g: item.target_carbs_g,
+          target_fat_g: item.target_fat_g,
+        },
+      });
+      setSuggestionsByItem((current) => ({ ...current, [item.id as number]: response.suggestions ?? [] }));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudieron generar opciones para esta comida.");
+    } finally {
+      setIsSuggestingItem(null);
+    }
+  }
+
+  function applyMenuSuggestion(itemId: number, suggestion: MenuSuggestion) {
+    setMealDraftByItem((current) => ({
+      ...current,
+      [itemId]: suggestion.items.map((suggestionItem) => ({
+        product: suggestionItem.product,
+        quantity_g: suggestionItem.quantity_g,
+      })),
+    }));
+    setFoodSearchByItem((current) => ({ ...current, [itemId]: "" }));
+    setFoodResultsByItem((current) => ({ ...current, [itemId]: [] }));
+    setSelectedFoodByItem((current) => {
+      const next = { ...current };
+      delete next[itemId];
+      return next;
+    });
+    setSuccess("Opcion cargada en la comida preparada. Puedes ajustarla antes de guardar.");
+  }
+
   function removeFoodFromMeal(itemId: number, index: number) {
     setMealDraftByItem((current) => ({
       ...current,
@@ -679,6 +786,18 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
             </div>
             <textarea className="min-h-24 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3" placeholder={config.descriptionPlaceholder} value={form.description} onChange={(event) => updateField("description", event.target.value)} />
 
+            {(fixedCategory || form.category) === "Nutricion" ? (
+              <div className="rounded-md border border-[#d9d4c7] bg-[#fbfaf7] p-4">
+                <p className="font-semibold">Objetivo diario de la dieta</p>
+                <p className="mt-1 text-sm text-[#64715f]">Define las calorias y macros totales que debe consumir el cliente durante el dia.</p>
+                <MacroTargetsGrid
+                  className="mt-4"
+                  values={form}
+                  onChange={(field, value) => updateField(field, value)}
+                />
+              </div>
+            ) : null}
+
             <div className="rounded-md bg-[#f7f5ef] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="font-semibold">{config.blockTitle}</p>
@@ -697,6 +816,16 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                       </button>
                     </div>
                     <textarea className="mt-4 min-h-20 w-full rounded-md border border-[#d9d4c7] px-3 py-3" placeholder={config.detailsPlaceholder} value={item.details} onChange={(event) => updateItem(index, "details", event.target.value)} />
+                    {(fixedCategory || form.category) === "Nutricion" ? (
+                      <div className="mt-4 rounded-md bg-[#fbfaf7] p-3">
+                        <p className="text-sm font-semibold">Macros de esta comida</p>
+                        <MacroTargetsGrid
+                          className="mt-3"
+                          values={item}
+                          onChange={(field, value) => updateItem(index, field, value)}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -738,6 +867,16 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                   <p className="mt-1">{readablePlan.items.length} bloques</p>
                 </div>
               </div>
+              {readablePlan.category === "Nutricion" ? (
+                <MacroSummary
+                  className="mt-4"
+                  title="Objetivo diario"
+                  calories={readablePlan.target_calories_kcal}
+                  protein={readablePlan.target_protein_g}
+                  carbs={readablePlan.target_carbs_g}
+                  fat={readablePlan.target_fat_g}
+                />
+              ) : null}
 
               <div className="mt-6">
                 <h3 className="text-lg font-semibold">{config.blockTitle}</h3>
@@ -755,6 +894,40 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                         <span className="rounded-md bg-white px-3 py-1 text-xs font-semibold text-[#4f5d75]">Bloque {index + 1}</span>
                       </div>
                       {item.details ? <p className="mt-3 whitespace-pre-line leading-7 text-[#3d493f]">{item.details}</p> : null}
+                      {readablePlan.category === "Nutricion" ? (
+                        <>
+                          <MacroSummary
+                            className="mt-3"
+                            title="Objetivo de la comida"
+                            calories={item.target_calories_kcal}
+                            protein={item.target_protein_g}
+                            carbs={item.target_carbs_g}
+                            fat={item.target_fat_g}
+                          />
+                          {item.id ? (
+                            <div className="mt-3 rounded-md border border-[#d9d4c7] bg-white p-3">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                  <p className="text-sm font-semibold text-[#18201b]">Ideas para cumplir tus macros</p>
+                                  <p className="mt-1 text-xs leading-5 text-[#64715f]">Genera opciones con cantidades calculadas desde la base de alimentos Mythos.</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="w-fit rounded-md bg-[#18201b] px-3 py-2 text-sm font-semibold text-white hover:bg-[#2c372f] disabled:cursor-not-allowed disabled:opacity-70"
+                                  disabled={isSuggestingItem === item.id || !hasMealTargets(item)}
+                                  onClick={() => void loadMenuSuggestions(item)}
+                                >
+                                  {isSuggestingItem === item.id ? "Generando..." : "Sugerir menus"}
+                                </button>
+                              </div>
+                              <MenuSuggestionsList
+                                suggestions={suggestionsByItem[item.id] ?? []}
+                                onUse={(suggestion) => applyMenuSuggestion(item.id as number, suggestion)}
+                              />
+                            </div>
+                          ) : null}
+                        </>
+                      ) : null}
                       {readablePlan.category === "Entrenamiento" ? (
                         <form className="mt-4 grid gap-3 rounded-md border border-[#d9d4c7] bg-white p-3" onSubmit={(event) => handleWorkoutTracking(event, item)}>
                           <p className="text-sm font-semibold">Registrar progreso</p>
@@ -946,9 +1119,108 @@ function MealDraftList({ items, onRemove }: { items: MealDraftItem[]; onRemove: 
   );
 }
 
+function MenuSuggestionsList({ suggestions, onUse }: { suggestions: MenuSuggestion[]; onUse: (suggestion: MenuSuggestion) => void }) {
+  if (suggestions.length === 0) {
+    return <p className="mt-3 rounded-md bg-[#fbfaf7] p-3 text-xs text-[#64715f]">Cuando generes opciones apareceran aqui con cantidades y macros estimados.</p>;
+  }
+
+  return (
+    <div className="mt-3 grid gap-3 lg:grid-cols-3">
+      {suggestions.map((suggestion) => (
+        <div key={suggestion.title} className="flex min-w-0 flex-col rounded-md border border-[#ece7dc] bg-[#fbfaf7] p-3">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-semibold text-[#18201b]">{suggestion.title}</p>
+            <span className="shrink-0 rounded-md bg-white px-2 py-1 text-xs font-semibold text-[#37513b]">{formatMacro(suggestion.totals.calories_kcal)} kcal</span>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {suggestion.items.map((item) => (
+              <div key={item.product.code || item.product.product_name} className="rounded-md bg-white p-2 text-xs">
+                <p className="font-semibold text-[#18201b]">{item.product.product_name}</p>
+                <p className="mt-1 text-[#64715f]">{item.quantity_g}g · P {formatMacro(item.protein_g)}g · C {formatMacro(item.carbs_g)}g · G {formatMacro(item.fat_g)}g</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-semibold text-[#5d6959]">
+            <span>P {formatMacro(suggestion.totals.protein_g)}g</span>
+            <span>C {formatMacro(suggestion.totals.carbs_g)}g</span>
+            <span>G {formatMacro(suggestion.totals.fat_g)}g</span>
+          </div>
+          <button type="button" className="mt-3 rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={() => onUse(suggestion)}>
+            Usar opcion
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function calculateFoodMacro(valuePer100g?: number, quantityG?: number) {
   if (typeof valuePer100g !== "number" || typeof quantityG !== "number") return null;
   return Number(((valuePer100g * quantityG) / 100).toFixed(2));
+}
+
+function hasMealTargets(item: PlanItem) {
+  return [item.target_calories_kcal, item.target_protein_g, item.target_carbs_g, item.target_fat_g].some((value) => typeof value === "number" && value > 0);
+}
+
+function stringifyNumber(value?: number | null) {
+  if (typeof value !== "number") return "";
+  return String(value);
+}
+
+function parseOptionalNumber(value: string) {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function MacroTargetsGrid({
+  className = "",
+  values,
+  onChange,
+}: {
+  className?: string;
+  values: Pick<PlanFormState, "target_calories_kcal" | "target_protein_g" | "target_carbs_g" | "target_fat_g">;
+  onChange: (field: "target_calories_kcal" | "target_protein_g" | "target_carbs_g" | "target_fat_g", value: string) => void;
+}) {
+  return (
+    <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-4 ${className}`}>
+      <MacroTargetInput label="Calorias" suffix="kcal" value={values.target_calories_kcal} onChange={(value) => onChange("target_calories_kcal", value)} />
+      <MacroTargetInput label="Proteinas" suffix="g" value={values.target_protein_g} onChange={(value) => onChange("target_protein_g", value)} />
+      <MacroTargetInput label="Carbohidratos" suffix="g" value={values.target_carbs_g} onChange={(value) => onChange("target_carbs_g", value)} />
+      <MacroTargetInput label="Grasas" suffix="g" value={values.target_fat_g} onChange={(value) => onChange("target_fat_g", value)} />
+    </div>
+  );
+}
+
+function MacroTargetInput({ label, suffix, value, onChange }: { label: string; suffix: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="grid min-w-0 gap-2 text-xs font-semibold text-[#3d493f]">
+      {label}
+      <div className="flex h-11 items-center rounded-md border border-[#d9d4c7] bg-white px-3">
+        <input className="min-w-0 flex-1 bg-transparent text-sm font-normal outline-none" type="number" min="0" step="0.1" value={value} onChange={(event) => onChange(event.target.value)} />
+        <span className="ml-2 text-xs font-semibold text-[#64715f]">{suffix}</span>
+      </div>
+    </label>
+  );
+}
+
+function MacroSummary({ className = "", title, calories, protein, carbs, fat }: { className?: string; title: string; calories?: number | null; protein?: number | null; carbs?: number | null; fat?: number | null }) {
+  if (![calories, protein, carbs, fat].some((value) => typeof value === "number")) {
+    return null;
+  }
+
+  return (
+    <div className={`rounded-md border border-[#ece7dc] bg-white p-3 ${className}`}>
+      <p className="text-sm font-semibold text-[#18201b]">{title}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#5d6959] sm:grid-cols-4">
+        <span>{formatMacro(calories)} kcal</span>
+        <span>P {formatMacro(protein)}g</span>
+        <span>C {formatMacro(carbs)}g</span>
+        <span>G {formatMacro(fat)}g</span>
+      </div>
+    </div>
+  );
 }
 
 function calculateMealTotals(items: MealDraftItem[]) {

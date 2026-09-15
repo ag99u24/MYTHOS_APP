@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -83,6 +83,10 @@ class Plan(db.Model, TimestampMixin):
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
     start_date: Mapped[Optional[date]] = mapped_column(Date)
     end_date: Mapped[Optional[date]] = mapped_column(Date)
+    target_calories_kcal: Mapped[Optional[float]] = mapped_column(Float)
+    target_protein_g: Mapped[Optional[float]] = mapped_column(Float)
+    target_carbs_g: Mapped[Optional[float]] = mapped_column(Float)
+    target_fat_g: Mapped[Optional[float]] = mapped_column(Float)
     professional_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 
@@ -99,6 +103,10 @@ class Plan(db.Model, TimestampMixin):
             "status": self.status,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "end_date": self.end_date.isoformat() if self.end_date else None,
+            "target_calories_kcal": self.target_calories_kcal,
+            "target_protein_g": self.target_protein_g,
+            "target_carbs_g": self.target_carbs_g,
+            "target_fat_g": self.target_fat_g,
             "professional_id": self.professional_id,
             "client_id": self.client_id,
             "items": [item.to_dict() for item in self.items],
@@ -113,6 +121,10 @@ class PlanItem(db.Model, TimestampMixin):
     day: Mapped[str] = mapped_column(String(40), nullable=False)
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     details: Mapped[Optional[str]] = mapped_column(Text)
+    target_calories_kcal: Mapped[Optional[float]] = mapped_column(Float)
+    target_protein_g: Mapped[Optional[float]] = mapped_column(Float)
+    target_carbs_g: Mapped[Optional[float]] = mapped_column(Float)
+    target_fat_g: Mapped[Optional[float]] = mapped_column(Float)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     plan: Mapped["Plan"] = relationship("Plan", back_populates="items")
@@ -124,6 +136,10 @@ class PlanItem(db.Model, TimestampMixin):
             "day": self.day,
             "title": self.title,
             "details": self.details,
+            "target_calories_kcal": self.target_calories_kcal,
+            "target_protein_g": self.target_protein_g,
+            "target_carbs_g": self.target_carbs_g,
+            "target_fat_g": self.target_fat_g,
             "sort_order": self.sort_order,
         }
         if include_plan and self.plan:
@@ -266,6 +282,60 @@ class DietEntry(db.Model, TimestampMixin):
             "salt_g": self.salt_g,
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Food(db.Model, TimestampMixin):
+    __tablename__ = "foods"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(180), nullable=False, index=True)
+    category: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+    subcategory: Mapped[Optional[str]] = mapped_column(String(100))
+    presentation: Mapped[Optional[str]] = mapped_column(String(100))
+    base_g: Mapped[float] = mapped_column(Float, nullable=False, default=100)
+    calories_kcal_100g: Mapped[Optional[float]] = mapped_column(Float)
+    protein_g_100g: Mapped[Optional[float]] = mapped_column(Float)
+    carbs_g_100g: Mapped[Optional[float]] = mapped_column(Float)
+    fat_g_100g: Mapped[Optional[float]] = mapped_column(Float)
+    source: Mapped[Optional[str]] = mapped_column(String(255))
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "code": self.code,
+            "name": self.name,
+            "category": self.category,
+            "subcategory": self.subcategory,
+            "presentation": self.presentation,
+            "base_g": self.base_g,
+            "calories_kcal_100g": self.calories_kcal_100g,
+            "protein_g_100g": self.protein_g_100g,
+            "carbs_g_100g": self.carbs_g_100g,
+            "fat_g_100g": self.fat_g_100g,
+            "source": self.source,
+            "is_active": self.is_active,
+        }
+
+    def to_nutrition_product(self):
+        return {
+            "code": self.code,
+            "product_name": self.name,
+            "brands": "Mythos",
+            "category": self.category,
+            "subcategory": self.subcategory,
+            "presentation": self.presentation,
+            "source": self.source,
+            "nutrition": {
+                "calories_kcal_100g": self.calories_kcal_100g,
+                "protein_g_100g": self.protein_g_100g,
+                "carbs_g_100g": self.carbs_g_100g,
+                "fat_g_100g": self.fat_g_100g,
+                "sugars_g_100g": None,
+                "salt_g_100g": None,
+            },
         }
 
 

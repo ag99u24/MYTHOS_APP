@@ -3,7 +3,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
 from app.models import Plan, PlanItem, User
-from app.route_utils import paginate_query, parse_int, parse_optional_date, parse_optional_int, professional_has_client
+from app.route_utils import paginate_query, parse_int, parse_optional_date, parse_optional_float, parse_optional_int, professional_has_client
 
 plans_bp = Blueprint("plans", __name__)
 PLAN_STATUSES = {"draft", "active", "finished"}
@@ -26,6 +26,24 @@ def parse_optional_plan_status(value):
     if value in (None, ""):
         return None, None
     return parse_plan_status(value)
+
+
+NUTRITION_TARGET_FIELDS = [
+    "target_calories_kcal",
+    "target_protein_g",
+    "target_carbs_g",
+    "target_fat_g",
+]
+
+
+def parse_nutrition_targets(data):
+    targets = {}
+    for field in NUTRITION_TARGET_FIELDS:
+        value, error = parse_optional_float(data.get(field), field, minimum=0)
+        if error:
+            return None, error
+        targets[field] = value
+    return targets, None
 
 
 @plans_bp.get("")
@@ -100,6 +118,10 @@ def create_plan():
     if error:
         return error
 
+    nutrition_targets, error = parse_nutrition_targets(data)
+    if error:
+        return error
+
     raw_items = data.get("items", [])
     plan_items = [item for item in raw_items if (item.get("title") or "").strip()]
     if not plan_items:
@@ -112,6 +134,7 @@ def create_plan():
         status=status,
         start_date=start_date,
         end_date=end_date,
+        **nutrition_targets,
         professional_id=user_id,
         client_id=client.id,
     )
@@ -120,12 +143,16 @@ def create_plan():
         sort_order, error = parse_optional_int(item.get("sort_order", index), "sort_order", minimum=0)
         if error:
             return error
+        item_targets, error = parse_nutrition_targets(item)
+        if error:
+            return error
 
         plan.items.append(
             PlanItem(
                 day=item.get("day", "General"),
                 title=item["title"].strip(),
                 details=item.get("details"),
+                **item_targets,
                 sort_order=sort_order if sort_order is not None else index,
             )
         )
@@ -163,6 +190,13 @@ def update_plan(plan_id):
         if field in data:
             setattr(plan, field, data[field].strip() if isinstance(data[field], str) else data[field])
 
+    for field in NUTRITION_TARGET_FIELDS:
+        if field in data:
+            value, error = parse_optional_float(data.get(field), field, minimum=0)
+            if error:
+                return error
+            setattr(plan, field, value)
+
     if "status" in data:
         status, error = parse_plan_status(data.get("status"))
         if error:
@@ -193,12 +227,16 @@ def update_plan(plan_id):
             sort_order, error = parse_optional_int(item.get("sort_order", index), "sort_order", minimum=0)
             if error:
                 return error
+            item_targets, error = parse_nutrition_targets(item)
+            if error:
+                return error
 
             plan.items.append(
                 PlanItem(
                     day=item.get("day", "General"),
                     title=item["title"].strip(),
                     details=item.get("details"),
+                    **item_targets,
                     sort_order=sort_order if sort_order is not None else index,
                 )
             )

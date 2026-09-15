@@ -5,6 +5,8 @@ from unittest.mock import patch
 from app import create_app
 from app.config import TestConfig
 from app.extensions import db
+from app.food_seed import seed_foods
+from app.models import Food
 
 
 class ConfigTestCase(unittest.TestCase):
@@ -593,11 +595,34 @@ class ApiTestCase(unittest.TestCase):
                 "category": "Nutricion",
                 "status": "active",
                 "client_id": client_session["user"]["id"],
-                "items": [{"day": "Lunes", "title": "Desayuno", "details": "Avena, yogur y fruta"}],
+                "target_calories_kcal": 2200,
+                "target_protein_g": 150,
+                "target_carbs_g": 240,
+                "target_fat_g": 65,
+                "items": [
+                    {
+                        "day": "Lunes",
+                        "title": "Desayuno",
+                        "details": "Avena, yogur y fruta",
+                        "target_calories_kcal": 420,
+                        "target_protein_g": 24,
+                        "target_carbs_g": 55,
+                        "target_fat_g": 10,
+                    }
+                ],
             },
             headers=self.auth_header(professional),
         )
-        plan_item_id = nutrition_response.get_json()["plan"]["items"][0]["id"]
+        nutrition_plan = nutrition_response.get_json()["plan"]
+        plan_item_id = nutrition_plan["items"][0]["id"]
+        self.assertEqual(nutrition_plan["target_calories_kcal"], 2200)
+        self.assertEqual(nutrition_plan["target_protein_g"], 150)
+        self.assertEqual(nutrition_plan["target_carbs_g"], 240)
+        self.assertEqual(nutrition_plan["target_fat_g"], 65)
+        self.assertEqual(nutrition_plan["items"][0]["target_calories_kcal"], 420)
+        self.assertEqual(nutrition_plan["items"][0]["target_protein_g"], 24)
+        self.assertEqual(nutrition_plan["items"][0]["target_carbs_g"], 55)
+        self.assertEqual(nutrition_plan["items"][0]["target_fat_g"], 10)
 
         diet_response = self.client.post(
             "/api/diet",
@@ -667,6 +692,74 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(product["product_name"], "Yogur griego natural")
         self.assertEqual(product["nutriscore_grade"], "b")
         self.assertEqual(product["nutrition"]["protein_g_100g"], 8.5)
+
+    def test_nutrition_search_prefers_mythos_food_database(self):
+        client_session = self.register("nutrition-food-db@example.com", "client", "Nutrition DB")
+        db.session.add(
+            Food(
+                code="TEST-001",
+                name="Pechuga de pavo Mythos",
+                category="proteinas",
+                subcategory="Ave",
+                presentation="Crudo",
+                base_g=100,
+                calories_kcal_100g=110,
+                protein_g_100g=24,
+                carbs_g_100g=0,
+                fat_g_100g=1,
+                source="Test",
+            )
+        )
+        db.session.commit()
+
+        with patch("app.routes.nutrition.urlopen") as mocked_urlopen:
+            response = self.client.get(
+                "/api/nutrition/search?q=pavo",
+                headers=self.auth_header(client_session),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        mocked_urlopen.assert_not_called()
+        product = response.get_json()["products"][0]
+        self.assertEqual(product["code"], "TEST-001")
+        self.assertEqual(product["product_name"], "Pechuga de pavo Mythos")
+        self.assertEqual(product["brands"], "Mythos")
+        self.assertEqual(product["nutrition"]["protein_g_100g"], 24)
+
+    def test_food_seed_loads_catalog_without_ration_column(self):
+        result = seed_foods()
+        self.assertEqual(result["total"], 214)
+        self.assertEqual(Food.query.count(), 214)
+
+        food = Food.query.filter_by(code="LAC-001").first()
+        self.assertIsNotNone(food)
+        self.assertEqual(food.category, "lacteos")
+        self.assertFalse(hasattr(food, "ration_g"))
+
+    def test_nutrition_suggestions_use_food_catalog_and_meal_targets(self):
+        client_session = self.register("nutrition-suggestions@example.com", "client", "Nutrition Suggestions")
+        seed_foods()
+
+        response = self.client.post(
+            "/api/nutrition/suggestions",
+            json={
+                "meal_type": "Desayuno",
+                "target_calories_kcal": 420,
+                "target_protein_g": 30,
+                "target_carbs_g": 45,
+                "target_fat_g": 12,
+            },
+            headers=self.auth_header(client_session),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        suggestions = response.get_json()["suggestions"]
+        self.assertEqual(len(suggestions), 3)
+        self.assertIn("totals", suggestions[0])
+        self.assertGreater(suggestions[0]["totals"]["protein_g"], 0)
+        self.assertGreater(len(suggestions[0]["items"]), 0)
+        self.assertIn("product", suggestions[0]["items"][0])
+        self.assertIn("nutrition", suggestions[0]["items"][0]["product"])
 
     def test_nutrition_search_accumulates_unique_fallback_results(self):
         client_session = self.register("nutrition-search-fallback@example.com", "client", "Nutrition Search")
