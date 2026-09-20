@@ -126,6 +126,13 @@ def get_client_summary(client_id):
         .limit(10)
         .all()
     )
+    nutrition_summary = {
+        "average_adherence_percentage": (
+            round(sum(entry.adherence_percentage for entry in diet) / len(diet)) if diet else None
+        ),
+        "latest_adherence_percentage": diet[0].adherence_percentage if diet else None,
+        "entries_count": len(diet),
+    }
     sessions = (
         SessionAppointment.query.filter_by(professional_id=professional_id, client_id=client_id)
         .order_by(SessionAppointment.scheduled_at.desc())
@@ -140,6 +147,7 @@ def get_client_summary(client_id):
             "progress": [entry.to_dict() for entry in progress],
             "workouts": [entry.to_dict() for entry in workouts],
             "diet": [entry.to_dict() for entry in diet],
+            "nutrition_summary": nutrition_summary,
             "sessions": [session.to_dict() for session in sessions],
         }
     )

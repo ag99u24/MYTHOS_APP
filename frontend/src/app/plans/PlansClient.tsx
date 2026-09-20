@@ -9,14 +9,41 @@ import { AuthUser, getStoredUser, getToken } from "@/lib/session";
 
 type PlanItem = {
   id?: number;
+  exercise_id?: number | null;
+  exercise?: ExerciseCatalogItem | null;
   day: string;
   title: string;
   details?: string | null;
+  exercise_summary?: string | null;
+  video_url?: string | null;
+  exercise_alternatives?: ExerciseAlternative[];
+  catalog_alternatives?: ExerciseCatalogItem[];
   target_calories_kcal?: number | null;
   target_protein_g?: number | null;
   target_carbs_g?: number | null;
   target_fat_g?: number | null;
   sort_order?: number;
+};
+
+type ExerciseAlternative = {
+  title: string;
+  summary: string;
+  video_url: string;
+};
+
+type ExerciseCatalogItem = {
+  id: number;
+  code: string;
+  name: string;
+  pattern: string;
+  movement_family: string;
+  substitution_group: string;
+  option_number: number;
+  muscle_group: string;
+  secondary_muscles?: string | null;
+  equipment?: string | null;
+  summary: string;
+  video_url: string;
 };
 
 type Plan = {
@@ -115,6 +142,10 @@ type PlanFormState = {
     day: string;
     title: string;
     details: string;
+    exercise_id: string;
+    exercise_summary: string;
+    video_url: string;
+    exercise_alternatives: ExerciseAlternative[];
     target_calories_kcal: string;
     target_protein_g: string;
     target_carbs_g: string;
@@ -194,8 +225,24 @@ const emptyForm: PlanFormState = {
   target_protein_g: "",
   target_carbs_g: "",
   target_fat_g: "",
-  items: [{ day: "Lunes", title: "", details: "", target_calories_kcal: "", target_protein_g: "", target_carbs_g: "", target_fat_g: "" }],
+  items: [createEmptyPlanItem("Lunes")],
 };
+
+function createEmptyPlanItem(day = "General"): PlanFormState["items"][number] {
+  return {
+    day,
+    title: "",
+    details: "",
+    exercise_id: "",
+    exercise_summary: "",
+    video_url: "",
+    exercise_alternatives: [],
+    target_calories_kcal: "",
+    target_protein_g: "",
+    target_carbs_g: "",
+    target_fat_g: "",
+  };
+}
 
 export function PlansClient({ mode = "all" }: PlansClientProps) {
   const config = modeConfig[mode];
@@ -224,7 +271,11 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
   const [mealDraftByItem, setMealDraftByItem] = useState<Record<number, MealDraftItem[]>>({});
   const [isSearchingFood, setIsSearchingFood] = useState<number | null>(null);
   const [suggestionsByItem, setSuggestionsByItem] = useState<Record<number, MenuSuggestion[]>>({});
+  const [suggestionOffsetByItem, setSuggestionOffsetByItem] = useState<Record<number, number>>({});
   const [isSuggestingItem, setIsSuggestingItem] = useState<number | null>(null);
+  const [exerciseSearchByItem, setExerciseSearchByItem] = useState<Record<number, string>>({});
+  const [exerciseResultsByItem, setExerciseResultsByItem] = useState<Record<number, ExerciseCatalogItem[]>>({});
+  const [isSearchingExercise, setIsSearchingExercise] = useState<number | null>(null);
 
   const token = useMemo(() => (typeof window !== "undefined" ? getToken() : null), []);
   const clientNameById = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
@@ -325,18 +376,22 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
             day: item.day,
             title: item.title,
             details: item.details ?? "",
+            exercise_id: item.exercise_id ? String(item.exercise_id) : "",
+            exercise_summary: item.exercise_summary ?? "",
+            video_url: item.video_url ?? "",
+            exercise_alternatives: item.exercise_alternatives ?? [],
             target_calories_kcal: stringifyNumber(item.target_calories_kcal),
             target_protein_g: stringifyNumber(item.target_protein_g),
             target_carbs_g: stringifyNumber(item.target_carbs_g),
             target_fat_g: stringifyNumber(item.target_fat_g),
           }))
-        : [{ day: "Lunes", title: "", details: "", target_calories_kcal: "", target_protein_g: "", target_carbs_g: "", target_fat_g: "" }],
+        : [createEmptyPlanItem("Lunes")],
     });
   }
 
   function startNewPlan() {
     setSelectedPlan(null);
-    setForm({ ...emptyForm, category: fixedCategory || emptyForm.category, client_id: clientFilter, items: [{ day: "Lunes", title: "", details: "", target_calories_kcal: "", target_protein_g: "", target_carbs_g: "", target_fat_g: "" }] });
+    setForm({ ...emptyForm, category: fixedCategory || emptyForm.category, client_id: clientFilter, items: [createEmptyPlanItem("Lunes")] });
     setSuccess("");
     setError("");
   }
@@ -349,7 +404,68 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
   }
 
   function addItem() {
-    setForm((current) => ({ ...current, items: [...current.items, { day: "General", title: "", details: "", target_calories_kcal: "", target_protein_g: "", target_carbs_g: "", target_fat_g: "" }] }));
+    setForm((current) => ({ ...current, items: [...current.items, createEmptyPlanItem()] }));
+  }
+
+  function addExerciseAlternative(itemIndex: number) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, index) => index === itemIndex && item.exercise_alternatives.length < 6
+        ? { ...item, exercise_alternatives: [...item.exercise_alternatives, { title: "", summary: "", video_url: "" }] }
+        : item),
+    }));
+  }
+
+  function updateExerciseAlternative(itemIndex: number, alternativeIndex: number, field: keyof ExerciseAlternative, value: string) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, index) => index === itemIndex
+        ? {
+            ...item,
+            exercise_alternatives: item.exercise_alternatives.map((alternative, currentIndex) => currentIndex === alternativeIndex
+              ? { ...alternative, [field]: value }
+              : alternative),
+          }
+        : item),
+    }));
+  }
+
+  function removeExerciseAlternative(itemIndex: number, alternativeIndex: number) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, index) => index === itemIndex
+        ? { ...item, exercise_alternatives: item.exercise_alternatives.filter((_, currentIndex) => currentIndex !== alternativeIndex) }
+        : item),
+    }));
+  }
+
+  async function searchExerciseCatalog(itemIndex: number) {
+    if (!token) return;
+    setIsSearchingExercise(itemIndex);
+    setError("");
+
+    try {
+      const query = exerciseSearchByItem[itemIndex]?.trim() ?? "";
+      const params = new URLSearchParams();
+      if (query) params.set("q", query);
+      const response = await apiRequest<{ exercises: ExerciseCatalogItem[] }>(`/exercises?${params.toString()}`, { token });
+      setExerciseResultsByItem((current) => ({ ...current, [itemIndex]: response.exercises.slice(0, 12) }));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "No se pudo consultar el catalogo de ejercicios.");
+    } finally {
+      setIsSearchingExercise(null);
+    }
+  }
+
+  function applyCatalogExercise(itemIndex: number, exercise: ExerciseCatalogItem) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, index) => index === itemIndex
+        ? { ...item, exercise_id: String(exercise.id), title: exercise.name, exercise_summary: exercise.summary, video_url: exercise.video_url }
+        : item),
+    }));
+    setExerciseSearchByItem((current) => ({ ...current, [itemIndex]: exercise.name }));
+    setExerciseResultsByItem((current) => ({ ...current, [itemIndex]: [] }));
   }
 
   function removeItem(index: number) {
@@ -390,6 +506,10 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
         day: item.day || "General",
         title: item.title.trim(),
         details: item.details,
+        exercise_id: item.exercise_id ? Number(item.exercise_id) : null,
+        exercise_summary: item.exercise_summary,
+        video_url: item.video_url,
+        exercise_alternatives: item.exercise_alternatives.filter((alternative) => alternative.title.trim()),
         target_calories_kcal: parseOptionalNumber(item.target_calories_kcal),
         target_protein_g: parseOptionalNumber(item.target_protein_g),
         target_carbs_g: parseOptionalNumber(item.target_carbs_g),
@@ -595,12 +715,14 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
 
     setIsSuggestingItem(item.id);
     setError("");
+    const nextOffset = suggestionsByItem[item.id]?.length ? (suggestionOffsetByItem[item.id] ?? 0) + 3 : 0;
 
     try {
       const response = await apiRequest<{ suggestions: MenuSuggestion[] }>("/nutrition/suggestions", {
         method: "POST",
         token,
         body: {
+          offset: nextOffset,
           meal_type: item.title,
           target_calories_kcal: item.target_calories_kcal,
           target_protein_g: item.target_protein_g,
@@ -609,6 +731,7 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
         },
       });
       setSuggestionsByItem((current) => ({ ...current, [item.id as number]: response.suggestions ?? [] }));
+      setSuggestionOffsetByItem((current) => ({ ...current, [item.id as number]: nextOffset }));
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "No se pudieron generar opciones para esta comida.");
     } finally {
@@ -632,6 +755,39 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
       return next;
     });
     setSuccess("Opcion cargada en la comida preparada. Puedes ajustarla antes de guardar.");
+  }
+
+  function updateMenuSuggestionQuantity(itemId: number, suggestionIndex: number, foodIndex: number, quantityValue: string) {
+    const quantity = Number(quantityValue);
+    const safeQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+
+    setSuggestionsByItem((current) => {
+      const itemSuggestions = current[itemId] ?? [];
+      const nextSuggestions = itemSuggestions.map((suggestion, currentSuggestionIndex) => {
+        if (currentSuggestionIndex !== suggestionIndex) return suggestion;
+
+        const nextItems = suggestion.items.map((suggestionItem, currentFoodIndex) => {
+          if (currentFoodIndex !== foodIndex) return suggestionItem;
+
+          return {
+            ...suggestionItem,
+            quantity_g: safeQuantity,
+            calories_kcal: calculateFoodMacro(suggestionItem.product.nutrition?.calories_kcal_100g, safeQuantity) ?? 0,
+            protein_g: calculateFoodMacro(suggestionItem.product.nutrition?.protein_g_100g, safeQuantity) ?? 0,
+            carbs_g: calculateFoodMacro(suggestionItem.product.nutrition?.carbs_g_100g, safeQuantity) ?? 0,
+            fat_g: calculateFoodMacro(suggestionItem.product.nutrition?.fat_g_100g, safeQuantity) ?? 0,
+          };
+        });
+
+        return {
+          ...suggestion,
+          items: nextItems,
+          totals: calculateSuggestionTotals(nextItems),
+        };
+      });
+
+      return { ...current, [itemId]: nextSuggestions };
+    });
   }
 
   function removeFoodFromMeal(itemId: number, index: number) {
@@ -787,18 +943,20 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
             <textarea className="min-h-24 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-3 py-3" placeholder={config.descriptionPlaceholder} value={form.description} onChange={(event) => updateField("description", event.target.value)} />
 
             {(fixedCategory || form.category) === "Nutricion" ? (
-              <div className="rounded-md border border-[#d9d4c7] bg-[#fbfaf7] p-4">
-                <p className="font-semibold">Objetivo diario de la dieta</p>
-                <p className="mt-1 text-sm text-[#64715f]">Define las calorias y macros totales que debe consumir el cliente durante el dia.</p>
+              <div className="overflow-hidden rounded-lg border border-[#d9d4c7] bg-white">
+                <div className="border-b border-[#ece7dc] bg-[#f7f5ef] px-4 py-3">
+                  <p className="font-semibold text-[#18201b]">Objetivo diario de la dieta</p>
+                  <p className="mt-1 text-sm leading-5 text-[#64715f]">Calorias y macros totales que debe consumir el cliente durante el dia.</p>
+                </div>
                 <MacroTargetsGrid
-                  className="mt-4"
+                  className="p-4"
                   values={form}
                   onChange={(field, value) => updateField(field, value)}
                 />
               </div>
             ) : null}
 
-            <div className="rounded-md bg-[#f7f5ef] p-4">
+            <div className="rounded-lg border border-[#ece7dc] bg-[#f7f5ef] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="font-semibold">{config.blockTitle}</p>
                 <button type="button" className="rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#fbfaf7]" onClick={addItem}>
@@ -808,6 +966,44 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
               <div className="mt-4 grid gap-4">
                 {form.items.map((item, index) => (
                   <div key={`${item.day}-${index}`} className="rounded-md border border-[#d9d4c7] bg-white p-4">
+                    {(fixedCategory || form.category) === "Entrenamiento" ? (
+                      <div className="mb-4 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] p-3">
+                        <p className="text-sm font-semibold text-[#18201b]">Buscar en el catalogo Mythos</p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
+                          <input
+                            className="h-10 rounded-md border border-[#d9d4c7] bg-white px-3 text-sm"
+                            placeholder="Ejercicio, grupo muscular o material"
+                            value={exerciseSearchByItem[index] ?? ""}
+                            onChange={(event) => setExerciseSearchByItem((current) => ({ ...current, [index]: event.target.value }))}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                void searchExerciseCatalog(index);
+                              }
+                            }}
+                          />
+                          <button type="button" className="rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef]" onClick={() => void searchExerciseCatalog(index)}>
+                            {isSearchingExercise === index ? "Buscando..." : "Buscar"}
+                          </button>
+                        </div>
+                        {exerciseResultsByItem[index]?.length ? (
+                          <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                            {exerciseResultsByItem[index].map((exercise) => (
+                              <button
+                                key={exercise.id}
+                                type="button"
+                                className="min-w-0 rounded-md border border-[#ece7dc] bg-white p-3 text-left hover:border-[#a8b5a4] hover:bg-[#f7f5ef]"
+                                onClick={() => applyCatalogExercise(index, exercise)}
+                              >
+                                <span className="block truncate text-sm font-semibold text-[#18201b]">{exercise.name}</span>
+                                <span className="mt-1 block text-xs text-[#a30000]">{exercise.muscle_group}</span>
+                                <span className="mt-1 block truncate text-xs text-[#64715f]">{exercise.equipment || "Sin material"}</span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <div className="grid gap-4 md:grid-cols-[140px_1fr_auto]">
                       <input className="h-11 rounded-md border border-[#d9d4c7] px-3" placeholder="Dia" value={item.day} onChange={(event) => updateItem(index, "day", event.target.value)} />
                       <input className="h-11 rounded-md border border-[#d9d4c7] px-3" placeholder={config.itemPlaceholder} value={item.title} onChange={(event) => updateItem(index, "title", event.target.value)} />
@@ -815,15 +1011,73 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                         Quitar
                       </button>
                     </div>
-                    <textarea className="mt-4 min-h-20 w-full rounded-md border border-[#d9d4c7] px-3 py-3" placeholder={config.detailsPlaceholder} value={item.details} onChange={(event) => updateItem(index, "details", event.target.value)} />
+                    {(fixedCategory || form.category) !== "Nutricion" ? (
+                      <textarea className="mt-4 min-h-20 w-full rounded-md border border-[#d9d4c7] px-3 py-3" placeholder={config.detailsPlaceholder} value={item.details} onChange={(event) => updateItem(index, "details", event.target.value)} />
+                    ) : null}
+                    {(fixedCategory || form.category) === "Entrenamiento" ? (
+                      <div className="mt-4 grid gap-4 rounded-md border border-[#ece7dc] bg-[#fbfaf7] p-4">
+                        <div>
+                          <p className="text-sm font-semibold text-[#18201b]">Guia del ejercicio</p>
+                          <p className="mt-1 text-xs leading-5 text-[#64715f]">Explica la tecnica y añade un video para que el cliente pueda consultarlo durante el entrenamiento.</p>
+                        </div>
+                        <textarea
+                          className="min-h-20 w-full rounded-md border border-[#d9d4c7] bg-white px-3 py-3"
+                          placeholder="Resumen de ejecucion: posicion inicial, recorrido y puntos importantes..."
+                          value={item.exercise_summary}
+                          onChange={(event) => updateItem(index, "exercise_summary", event.target.value)}
+                        />
+                        <input
+                          className="h-11 rounded-md border border-[#d9d4c7] bg-white px-3"
+                          placeholder="URL del video (YouTube o enlace externo)"
+                          type="url"
+                          value={item.video_url}
+                          onChange={(event) => updateItem(index, "video_url", event.target.value)}
+                        />
+                        <div className="border-t border-[#e4dfd3] pt-4">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-[#18201b]">Alternativas equivalentes</p>
+                              <p className="mt-1 text-xs text-[#64715f]">Para cuando no haya material disponible o el cliente necesite otra variante.</p>
+                            </div>
+                            <button
+                              type="button"
+                              className="w-fit rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold hover:bg-[#f7f5ef] disabled:opacity-50"
+                              disabled={item.exercise_alternatives.length >= 6}
+                              onClick={() => addExerciseAlternative(index)}
+                            >
+                              Añadir alternativa
+                            </button>
+                          </div>
+                          <div className="mt-3 grid gap-3">
+                            {item.exercise_alternatives.map((alternative, alternativeIndex) => (
+                              <div key={alternativeIndex} className="grid gap-3 rounded-md border border-[#d9d4c7] bg-white p-3">
+                                <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                                  <input className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" placeholder="Nombre de la alternativa" value={alternative.title} onChange={(event) => updateExerciseAlternative(index, alternativeIndex, "title", event.target.value)} />
+                                  <button type="button" className="rounded-md border border-[#f1b5a4] px-3 py-2 text-sm font-semibold text-[#963519] hover:bg-[#fff4ef]" onClick={() => removeExerciseAlternative(index, alternativeIndex)}>Quitar</button>
+                                </div>
+                                <textarea className="min-h-16 rounded-md border border-[#d9d4c7] px-3 py-2 text-sm" placeholder="Como realizar esta alternativa" value={alternative.summary} onChange={(event) => updateExerciseAlternative(index, alternativeIndex, "summary", event.target.value)} />
+                                <input className="h-10 rounded-md border border-[#d9d4c7] px-3 text-sm" placeholder="URL del video de la alternativa" type="url" value={alternative.video_url} onChange={(event) => updateExerciseAlternative(index, alternativeIndex, "video_url", event.target.value)} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                     {(fixedCategory || form.category) === "Nutricion" ? (
-                      <div className="mt-4 rounded-md bg-[#fbfaf7] p-3">
-                        <p className="text-sm font-semibold">Macros de esta comida</p>
+                      <div className="mt-4 rounded-md border border-[#ece7dc] bg-[#fbfaf7] p-4">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-[#18201b]">Objetivo de esta comida</p>
+                            <p className="mt-1 text-xs leading-5 text-[#64715f]">Estos datos se usaran para sugerir menus al cliente.</p>
+                          </div>
+                          <span className="w-fit rounded-md bg-white px-2 py-1 text-xs font-semibold text-[#37513b]">Comida {index + 1}</span>
+                        </div>
                         <MacroTargetsGrid
                           className="mt-3"
                           values={item}
                           onChange={(field, value) => updateItem(index, field, value)}
                         />
+                        <textarea className="mt-4 min-h-20 w-full rounded-md border border-[#d9d4c7] bg-white px-3 py-3" placeholder="Notas" value={item.details} onChange={(event) => updateItem(index, "details", event.target.value)} />
                       </div>
                     ) : null}
                   </div>
@@ -893,7 +1147,20 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                         </div>
                         <span className="rounded-md bg-white px-3 py-1 text-xs font-semibold text-[#4f5d75]">Bloque {index + 1}</span>
                       </div>
-                      {item.details ? <p className="mt-3 whitespace-pre-line leading-7 text-[#3d493f]">{item.details}</p> : null}
+                      {readablePlan.category === "Entrenamiento" && item.details ? (
+                        <div className="mt-3 rounded-md bg-white p-3">
+                          <p className="text-xs font-semibold uppercase text-[#64715f]">Pauta asignada</p>
+                          <p className="mt-1 whitespace-pre-line leading-7 text-[#3d493f]">{item.details}</p>
+                        </div>
+                      ) : item.details ? <p className="mt-3 whitespace-pre-line leading-7 text-[#3d493f]">{item.details}</p> : null}
+                      {readablePlan.category === "Entrenamiento" && item.exercise_summary ? (
+                        <div className="mt-3">
+                          <p className="text-sm font-semibold text-[#18201b]">Como realizarlo</p>
+                          <p className="mt-1 whitespace-pre-line leading-7 text-[#3d493f]">{item.exercise_summary}</p>
+                        </div>
+                      ) : null}
+                      {readablePlan.category === "Entrenamiento" && item.video_url ? <ExerciseVideo title={item.title} url={item.video_url} /> : null}
+                      {readablePlan.category === "Entrenamiento" ? <ExerciseAlternatives item={item} /> : null}
                       {readablePlan.category === "Nutricion" ? (
                         <>
                           <MacroSummary
@@ -917,12 +1184,13 @@ export function PlansClient({ mode = "all" }: PlansClientProps) {
                                   disabled={isSuggestingItem === item.id || !hasMealTargets(item)}
                                   onClick={() => void loadMenuSuggestions(item)}
                                 >
-                                  {isSuggestingItem === item.id ? "Generando..." : "Sugerir menus"}
+                                  {isSuggestingItem === item.id ? "Generando..." : suggestionsByItem[item.id]?.length ? "Sugerir mas menus" : "Sugerir menus"}
                                 </button>
                               </div>
                               <MenuSuggestionsList
                                 suggestions={suggestionsByItem[item.id] ?? []}
                                 onUse={(suggestion) => applyMenuSuggestion(item.id as number, suggestion)}
+                                onQuantityChange={(suggestionIndex, foodIndex, quantity) => updateMenuSuggestionQuantity(item.id as number, suggestionIndex, foodIndex, quantity)}
                               />
                             </div>
                           ) : null}
@@ -1119,24 +1387,45 @@ function MealDraftList({ items, onRemove }: { items: MealDraftItem[]; onRemove: 
   );
 }
 
-function MenuSuggestionsList({ suggestions, onUse }: { suggestions: MenuSuggestion[]; onUse: (suggestion: MenuSuggestion) => void }) {
+function MenuSuggestionsList({
+  suggestions,
+  onUse,
+  onQuantityChange,
+}: {
+  suggestions: MenuSuggestion[];
+  onUse: (suggestion: MenuSuggestion) => void;
+  onQuantityChange: (suggestionIndex: number, foodIndex: number, quantity: string) => void;
+}) {
   if (suggestions.length === 0) {
     return <p className="mt-3 rounded-md bg-[#fbfaf7] p-3 text-xs text-[#64715f]">Cuando generes opciones apareceran aqui con cantidades y macros estimados.</p>;
   }
 
   return (
     <div className="mt-3 grid gap-3 lg:grid-cols-3">
-      {suggestions.map((suggestion) => (
+      {suggestions.map((suggestion, suggestionIndex) => (
         <div key={suggestion.title} className="flex min-w-0 flex-col rounded-md border border-[#ece7dc] bg-[#fbfaf7] p-3">
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm font-semibold text-[#18201b]">{suggestion.title}</p>
             <span className="shrink-0 rounded-md bg-white px-2 py-1 text-xs font-semibold text-[#37513b]">{formatMacro(suggestion.totals.calories_kcal)} kcal</span>
           </div>
           <div className="mt-3 grid gap-2">
-            {suggestion.items.map((item) => (
+            {suggestion.items.map((item, foodIndex) => (
               <div key={item.product.code || item.product.product_name} className="rounded-md bg-white p-2 text-xs">
-                <p className="font-semibold text-[#18201b]">{item.product.product_name}</p>
-                <p className="mt-1 text-[#64715f]">{item.quantity_g}g · P {formatMacro(item.protein_g)}g · C {formatMacro(item.carbs_g)}g · G {formatMacro(item.fat_g)}g</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 font-semibold text-[#18201b]">{item.product.product_name}</p>
+                  <label className="flex shrink-0 items-center gap-1 rounded-md border border-[#d9d4c7] bg-[#fbfaf7] px-2 py-1 font-semibold text-[#3d493f]">
+                    <input
+                      className="w-12 bg-transparent text-right outline-none"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={item.quantity_g}
+                      onChange={(event) => onQuantityChange(suggestionIndex, foodIndex, event.target.value)}
+                    />
+                    g
+                  </label>
+                </div>
+                <p className="mt-2 text-[#64715f]">{formatMacro(item.calories_kcal)} kcal · P {formatMacro(item.protein_g)}g · C {formatMacro(item.carbs_g)}g · G {formatMacro(item.fat_g)}g</p>
               </div>
             ))}
           </div>
@@ -1159,8 +1448,114 @@ function calculateFoodMacro(valuePer100g?: number, quantityG?: number) {
   return Number(((valuePer100g * quantityG) / 100).toFixed(2));
 }
 
+function ExerciseAlternatives({ item }: { item: PlanItem }) {
+  const alternatives = [
+    ...(item.catalog_alternatives ?? []).map((alternative) => ({
+      key: `catalog-${alternative.id}`,
+      title: alternative.name,
+      summary: alternative.summary,
+      video_url: alternative.video_url,
+      optionNumber: alternative.option_number,
+      equipment: alternative.equipment,
+    })),
+    ...(item.exercise_alternatives ?? []).map((alternative, index) => ({
+      key: `manual-${alternative.title}-${index}`,
+      title: alternative.title,
+      summary: alternative.summary,
+      video_url: alternative.video_url,
+      optionNumber: null,
+      equipment: null,
+    })),
+  ];
+
+  if (alternatives.length === 0) return null;
+
+  return (
+    <details className="mt-3 rounded-md border border-[#d9d4c7] bg-white p-3">
+      <summary className="cursor-pointer text-sm font-semibold text-[#37513b]">Necesito otra opcion ({alternatives.length})</summary>
+      <p className="mt-2 text-xs leading-5 text-[#64715f]">Elige una variante del mismo patron y angulo si el material esta ocupado o no puedes realizar el ejercicio principal.</p>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {alternatives.map((alternative) => (
+          <article key={alternative.key} className="rounded-md border border-[#ece7dc] bg-[#fbfaf7] p-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-semibold">{alternative.title}</p>
+              {alternative.optionNumber ? <span className="shrink-0 rounded-md bg-white px-2 py-1 text-xs font-semibold text-[#64715f]">Opcion {alternative.optionNumber}</span> : null}
+            </div>
+            {alternative.equipment ? <p className="mt-1 text-xs font-semibold text-[#a30000]">{alternative.equipment}</p> : null}
+            {alternative.summary ? <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#4f5d53]">{alternative.summary}</p> : null}
+            {alternative.video_url ? <ExerciseVideo compact title={alternative.title} url={alternative.video_url} /> : null}
+          </article>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function ExerciseVideo({ title, url, compact = false }: { title: string; url: string; compact?: boolean }) {
+  const embedUrl = getExerciseEmbedUrl(url);
+
+  if (!embedUrl) {
+    return (
+      <a className="mt-3 inline-flex w-fit rounded-md border border-[#d9d4c7] bg-white px-3 py-2 text-sm font-semibold text-[#37513b] hover:bg-[#f7f5ef]" href={url} target="_blank" rel="noreferrer">
+        Ver video del ejercicio
+      </a>
+    );
+  }
+
+  return (
+    <div className={`mt-3 overflow-hidden rounded-md border border-[#d9d4c7] bg-black ${compact ? "max-w-md" : "w-full"}`}>
+      <iframe
+        className="aspect-video w-full"
+        src={embedUrl}
+        title={`Video de ${title}`}
+        loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    </div>
+  );
+}
+
+function getExerciseEmbedUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./, "");
+
+    if (host === "youtu.be") {
+      const videoId = url.pathname.split("/").filter(Boolean)[0];
+      return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
+    }
+
+    if (["youtube.com", "m.youtube.com"].includes(host)) {
+      const videoId = url.searchParams.get("v") || (url.pathname.startsWith("/shorts/") ? url.pathname.split("/")[2] : null) || (url.pathname.startsWith("/embed/") ? url.pathname.split("/")[2] : null);
+      return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
+    }
+
+    if (host === "vimeo.com" || host === "player.vimeo.com") {
+      const videoId = url.pathname.split("/").filter(Boolean).find((segment) => /^\d+$/.test(segment));
+      return videoId ? `https://player.vimeo.com/video/${videoId}` : null;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 function hasMealTargets(item: PlanItem) {
   return [item.target_calories_kcal, item.target_protein_g, item.target_carbs_g, item.target_fat_g].some((value) => typeof value === "number" && value > 0);
+}
+
+function calculateSuggestionTotals(items: MenuSuggestion["items"]) {
+  return items.reduce(
+    (totals, item) => ({
+      calories_kcal: Number((totals.calories_kcal + item.calories_kcal).toFixed(1)),
+      protein_g: Number((totals.protein_g + item.protein_g).toFixed(1)),
+      carbs_g: Number((totals.carbs_g + item.carbs_g).toFixed(1)),
+      fat_g: Number((totals.fat_g + item.fat_g).toFixed(1)),
+    }),
+    { calories_kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
+  );
 }
 
 function stringifyNumber(value?: number | null) {
@@ -1184,7 +1579,7 @@ function MacroTargetsGrid({
   onChange: (field: "target_calories_kcal" | "target_protein_g" | "target_carbs_g" | "target_fat_g", value: string) => void;
 }) {
   return (
-    <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-4 ${className}`}>
+    <div className={`grid min-w-0 gap-3 sm:grid-cols-2 2xl:grid-cols-4 ${className}`}>
       <MacroTargetInput label="Calorias" suffix="kcal" value={values.target_calories_kcal} onChange={(value) => onChange("target_calories_kcal", value)} />
       <MacroTargetInput label="Proteinas" suffix="g" value={values.target_protein_g} onChange={(value) => onChange("target_protein_g", value)} />
       <MacroTargetInput label="Carbohidratos" suffix="g" value={values.target_carbs_g} onChange={(value) => onChange("target_carbs_g", value)} />
@@ -1197,9 +1592,9 @@ function MacroTargetInput({ label, suffix, value, onChange }: { label: string; s
   return (
     <label className="grid min-w-0 gap-2 text-xs font-semibold text-[#3d493f]">
       {label}
-      <div className="flex h-11 items-center rounded-md border border-[#d9d4c7] bg-white px-3">
-        <input className="min-w-0 flex-1 bg-transparent text-sm font-normal outline-none" type="number" min="0" step="0.1" value={value} onChange={(event) => onChange(event.target.value)} />
-        <span className="ml-2 text-xs font-semibold text-[#64715f]">{suffix}</span>
+      <div className="flex h-11 min-w-0 items-center rounded-md border border-[#d9d4c7] bg-white px-3 transition focus-within:border-[#c5a059] focus-within:ring-2 focus-within:ring-[#ead8ad]">
+        <input className="min-w-0 flex-1 bg-transparent text-sm font-normal text-[#18201b] outline-none" type="number" min="0" step="0.1" value={value} onChange={(event) => onChange(event.target.value)} />
+        <span className="ml-2 shrink-0 text-xs font-semibold text-[#64715f]">{suffix}</span>
       </div>
     </label>
   );

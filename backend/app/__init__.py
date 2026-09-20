@@ -8,6 +8,7 @@ from app.config import Config, validate_security_config
 from app.extensions import db, jwt, migrate
 from app.routes.auth import auth_bp
 from app.routes.diet import diet_bp
+from app.routes.exercises import exercises_bp
 from app.routes.messages import messages_bp
 from app.routes.nutrition import nutrition_bp
 from app.routes.plans import plans_bp
@@ -33,6 +34,7 @@ def create_app(config_class=Config):
     app.register_blueprint(progress_bp, url_prefix="/api/progress")
     app.register_blueprint(workouts_bp, url_prefix="/api/workouts")
     app.register_blueprint(diet_bp, url_prefix="/api/diet")
+    app.register_blueprint(exercises_bp, url_prefix="/api/exercises")
     app.register_blueprint(nutrition_bp, url_prefix="/api/nutrition")
     app.register_blueprint(sessions_bp, url_prefix="/api/sessions")
     app.register_blueprint(messages_bp, url_prefix="/api/messages")
@@ -86,6 +88,7 @@ def create_app(config_class=Config):
 
     @app.cli.command("seed-demo")
     def seed_demo():
+        from app.exercise_seed import seed_exercises
         from app.food_seed import seed_foods
         from app.models import (
             ChatMessage,
@@ -101,6 +104,7 @@ def create_app(config_class=Config):
 
         db.create_all()
         seed_foods()
+        seed_exercises()
 
         professional = User.query.filter_by(email="coach@mythos.demo").first()
         if not professional:
@@ -196,5 +200,13 @@ def create_app(config_class=Config):
         db.create_all()
         result = seed_foods()
         print(f"Mythos foods ready. Created: {result['created']}. Updated: {result['updated']}. Total: {result['total']}.")
+
+    @app.cli.command("seed-exercises")
+    def seed_exercises_command():
+        from app.exercise_seed import seed_exercises
+
+        db.create_all()
+        result = seed_exercises()
+        print(f"Mythos exercises ready. Created: {result['created']}. Updated: {result['updated']}. Total: {result['total']}.")
 
     return app

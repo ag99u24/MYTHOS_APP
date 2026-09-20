@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db
-from app.models import Plan, PlanItem, User
+from app.models import Exercise, Plan, PlanItem, User
 from app.route_utils import paginate_query, parse_int, parse_optional_date, parse_optional_float, parse_optional_int, professional_has_client
 
 plans_bp = Blueprint("plans", __name__)
@@ -34,6 +34,7 @@ NUTRITION_TARGET_FIELDS = [
     "target_carbs_g",
     "target_fat_g",
 ]
+MAX_EXERCISE_ALTERNATIVES = 6
 
 
 def parse_nutrition_targets(data):
@@ -44,6 +45,46 @@ def parse_nutrition_targets(data):
             return None, error
         targets[field] = value
     return targets, None
+
+
+def parse_exercise_fields(data):
+    summary = data.get("exercise_summary")
+    video_url = data.get("video_url")
+    raw_alternatives = data.get("exercise_alternatives") or []
+    exercise_id, error = parse_optional_int(data.get("exercise_id"), "exercise_id", minimum=1)
+    if error:
+        return None, error
+    if exercise_id is not None:
+        exercise = db.session.get(Exercise, exercise_id)
+        if not exercise or not exercise.is_active:
+            return None, (jsonify({"message": "Exercise not found"}), 404)
+
+    if not isinstance(raw_alternatives, list):
+        return None, (jsonify({"message": "exercise_alternatives must be a list"}), 400)
+    if len(raw_alternatives) > MAX_EXERCISE_ALTERNATIVES:
+        return None, (jsonify({"message": f"A maximum of {MAX_EXERCISE_ALTERNATIVES} alternatives is allowed"}), 400)
+
+    alternatives = []
+    for alternative in raw_alternatives:
+        if not isinstance(alternative, dict):
+            return None, (jsonify({"message": "Each exercise alternative must be an object"}), 400)
+        title = (alternative.get("title") or "").strip()
+        if not title:
+            continue
+        alternatives.append(
+            {
+                "title": title[:160],
+                "summary": (alternative.get("summary") or "").strip(),
+                "video_url": (alternative.get("video_url") or "").strip()[:500],
+            }
+        )
+
+    return {
+        "exercise_id": exercise_id,
+        "exercise_summary": summary.strip() if isinstance(summary, str) else None,
+        "video_url": video_url.strip()[:500] if isinstance(video_url, str) else None,
+        "exercise_alternatives": alternatives,
+    }, None
 
 
 @plans_bp.get("")
@@ -146,12 +187,16 @@ def create_plan():
         item_targets, error = parse_nutrition_targets(item)
         if error:
             return error
+        exercise_fields, error = parse_exercise_fields(item)
+        if error:
+            return error
 
         plan.items.append(
             PlanItem(
                 day=item.get("day", "General"),
                 title=item["title"].strip(),
                 details=item.get("details"),
+                **exercise_fields,
                 **item_targets,
                 sort_order=sort_order if sort_order is not None else index,
             )
@@ -230,12 +275,16 @@ def update_plan(plan_id):
             item_targets, error = parse_nutrition_targets(item)
             if error:
                 return error
+            exercise_fields, error = parse_exercise_fields(item)
+            if error:
+                return error
 
             plan.items.append(
                 PlanItem(
                     day=item.get("day", "General"),
                     title=item["title"].strip(),
                     details=item.get("details"),
+                    **exercise_fields,
                     **item_targets,
                     sort_order=sort_order if sort_order is not None else index,
                 )

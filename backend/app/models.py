@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -118,9 +118,13 @@ class PlanItem(db.Model, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     plan_id: Mapped[int] = mapped_column(ForeignKey("plans.id"), nullable=False)
+    exercise_id: Mapped[Optional[int]] = mapped_column(ForeignKey("exercises.id"))
     day: Mapped[str] = mapped_column(String(40), nullable=False)
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     details: Mapped[Optional[str]] = mapped_column(Text)
+    exercise_summary: Mapped[Optional[str]] = mapped_column(Text)
+    video_url: Mapped[Optional[str]] = mapped_column(String(500))
+    exercise_alternatives: Mapped[Optional[list]] = mapped_column(JSON)
     target_calories_kcal: Mapped[Optional[float]] = mapped_column(Float)
     target_protein_g: Mapped[Optional[float]] = mapped_column(Float)
     target_carbs_g: Mapped[Optional[float]] = mapped_column(Float)
@@ -128,14 +132,31 @@ class PlanItem(db.Model, TimestampMixin):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     plan: Mapped["Plan"] = relationship("Plan", back_populates="items")
+    exercise: Mapped[Optional["Exercise"]] = relationship("Exercise", foreign_keys=[exercise_id])
 
     def to_dict(self, include_plan=False):
+        catalog_alternatives = []
+        if self.exercise and self.exercise.substitution_group:
+            catalog_alternatives = [
+                alternative.to_dict()
+                for alternative in Exercise.query.filter(
+                    Exercise.substitution_group == self.exercise.substitution_group,
+                    Exercise.id != self.exercise.id,
+                    Exercise.is_active.is_(True),
+                ).order_by(Exercise.option_number.asc(), Exercise.name.asc()).all()
+            ]
         data = {
             "id": self.id,
             "plan_id": self.plan_id,
+            "exercise_id": self.exercise_id,
+            "exercise": self.exercise.to_dict() if self.exercise else None,
             "day": self.day,
             "title": self.title,
             "details": self.details,
+            "exercise_summary": self.exercise_summary,
+            "video_url": self.video_url,
+            "exercise_alternatives": self.exercise_alternatives or [],
+            "catalog_alternatives": catalog_alternatives,
             "target_calories_kcal": self.target_calories_kcal,
             "target_protein_g": self.target_protein_g,
             "target_carbs_g": self.target_carbs_g,
@@ -336,6 +357,41 @@ class Food(db.Model, TimestampMixin):
                 "sugars_g_100g": None,
                 "salt_g_100g": None,
             },
+        }
+
+
+class Exercise(db.Model, TimestampMixin):
+    __tablename__ = "exercises"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(60), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(180), nullable=False, index=True)
+    pattern: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    movement_family: Mapped[str] = mapped_column(String(120), nullable=False)
+    substitution_group: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    option_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    muscle_group: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    secondary_muscles: Mapped[Optional[str]] = mapped_column(String(180))
+    equipment: Mapped[Optional[str]] = mapped_column(String(100))
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    video_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "code": self.code,
+            "name": self.name,
+            "pattern": self.pattern,
+            "movement_family": self.movement_family,
+            "substitution_group": self.substitution_group,
+            "option_number": self.option_number,
+            "muscle_group": self.muscle_group,
+            "secondary_muscles": self.secondary_muscles,
+            "equipment": self.equipment,
+            "summary": self.summary,
+            "video_url": self.video_url,
+            "is_active": self.is_active,
         }
 
 

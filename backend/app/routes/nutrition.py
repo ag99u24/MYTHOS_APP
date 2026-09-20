@@ -52,6 +52,26 @@ MEAL_TEMPLATES = (
         "title": "Skyr, platano y nueces",
         "foods": (("protein", "Skyr natural 0%"), ("carbs", "Platano"), ("fat", "Nuez")),
     },
+    {
+        "title": "Atun, patata y aceite de oliva",
+        "foods": (("protein", "Atun al natural escurrido"), ("carbs", "Patata cocida"), ("fat", "Aceite de oliva virgen extra")),
+    },
+    {
+        "title": "Merluza, quinoa y aceite de oliva",
+        "foods": (("protein", "Merluza"), ("carbs", "Quinoa"), ("fat", "Aceite de oliva virgen extra")),
+    },
+    {
+        "title": "Ternera, pasta integral y aceite de oliva",
+        "foods": (("protein", "Ternera magra 5% grasa"), ("carbs", "Pasta integral"), ("fat", "Aceite de oliva virgen extra")),
+    },
+    {
+        "title": "Lentejas, arroz y aceite de oliva",
+        "foods": (("protein", "Lenteja"), ("carbs", "Arroz blanco cocido"), ("fat", "Aceite de oliva virgen extra")),
+    },
+    {
+        "title": "Salmon, patata y aceite de oliva",
+        "foods": (("protein", "Salmon atlantico"), ("carbs", "Patata cocida"), ("fat", "Aceite de oliva virgen extra")),
+    },
 )
 
 
@@ -304,6 +324,7 @@ def list_foods():
 @jwt_required()
 def suggest_meal_options():
     payload = request.get_json(silent=True) or {}
+    offset = int(parse_target(payload.get("offset")))
     targets = {
         "calories_kcal": parse_target(payload.get("target_calories_kcal")),
         "protein_g": parse_target(payload.get("target_protein_g")),
@@ -320,5 +341,8 @@ def suggest_meal_options():
         if suggestion and suggestion["items"]:
             suggestions.append(suggestion)
 
-    suggestions = sorted(suggestions, key=lambda suggestion: suggestion["score"])[:3]
+    suggestions = sorted(suggestions, key=lambda suggestion: suggestion["score"])
+    if suggestions:
+        offset = offset % len(suggestions)
+        suggestions = (suggestions[offset:] + suggestions[:offset])[:3]
     return jsonify({"suggestions": suggestions})

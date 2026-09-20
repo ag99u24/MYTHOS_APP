@@ -5,8 +5,9 @@ from unittest.mock import patch
 from app import create_app
 from app.config import TestConfig
 from app.extensions import db
+from app.exercise_seed import seed_exercises
 from app.food_seed import seed_foods
-from app.models import Food
+from app.models import Exercise, Food
 
 
 class ConfigTestCase(unittest.TestCase):
@@ -80,6 +81,28 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["service"], "mythos-api")
         self.assertEqual(payload["checks"]["database"], "ok")
+
+    def test_exercise_catalog_can_be_seeded_and_filtered(self):
+        professional = self.register("exercise-catalog@example.com", "professional", "Exercise Coach")
+        result = seed_exercises()
+
+        self.assertEqual(result["total"], 69)
+        self.assertEqual(Exercise.query.count(), 69)
+
+        response = self.client.get(
+            "/api/exercises?muscle_group=Pecho&q=press",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertGreaterEqual(len(payload["exercises"]), 2)
+        self.assertTrue(all(exercise["muscle_group"] == "Pecho" for exercise in payload["exercises"]))
+        self.assertTrue(all(exercise["summary"] and exercise["video_url"] for exercise in payload["exercises"]))
+        self.assertIn("Pecho", payload["muscle_groups"])
+        self.assertIn("Empuje", payload["patterns"])
+        flat_press = Exercise.query.filter_by(code="PECHO-001").one()
+        self.assertEqual(flat_press.substitution_group, "EMPUJE-HORIZONTAL-PLANO")
+        self.assertEqual(flat_press.option_number, 3)
 
     def test_api_responses_include_security_headers(self):
         response = self.client.get("/api/health")
@@ -491,6 +514,8 @@ class ApiTestCase(unittest.TestCase):
     def test_assigned_training_requires_items_and_is_visible_to_client(self):
         professional = self.register("assigned-training-pro@example.com", "professional", "Coach")
         client_session = self.register("assigned-training-client@example.com", "client", "Training Client")
+        seed_exercises()
+        squat = Exercise.query.filter_by(code="CUADRICEPS-001").one()
 
         assign_response = self.client.post(
             "/api/users/clients",
@@ -519,7 +544,23 @@ class ApiTestCase(unittest.TestCase):
                 "category": "Entrenamiento",
                 "status": "active",
                 "client_id": client_session["user"]["id"],
-                "items": [{"day": "Lunes", "title": "Sentadilla", "details": "4x8 con descanso de 90s"}],
+                "items": [
+                    {
+                        "day": "Lunes",
+                        "exercise_id": squat.id,
+                        "title": "Sentadilla",
+                        "details": "4x8 con descanso de 90s",
+                        "exercise_summary": "Baja con el pecho alto y las rodillas alineadas.",
+                        "video_url": "https://youtu.be/example",
+                        "exercise_alternatives": [
+                            {
+                                "title": "Prensa de piernas",
+                                "summary": "Mantener la espalda apoyada.",
+                                "video_url": "https://youtu.be/alternative",
+                            }
+                        ],
+                    }
+                ],
             },
             headers=self.auth_header(professional),
         )
@@ -535,6 +576,15 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(len(client_plans), 1)
         self.assertEqual(client_plans[0]["title"], "Entrenamiento visible")
         self.assertEqual(client_plans[0]["items"][0]["title"], "Sentadilla")
+        self.assertEqual(client_plans[0]["items"][0]["exercise_summary"], "Baja con el pecho alto y las rodillas alineadas.")
+        self.assertEqual(client_plans[0]["items"][0]["video_url"], "https://youtu.be/example")
+        self.assertEqual(client_plans[0]["items"][0]["exercise_alternatives"][0]["title"], "Prensa de piernas")
+        self.assertEqual(client_plans[0]["items"][0]["exercise"]["substitution_group"], "SENTADILLA-BILATERAL")
+        self.assertEqual(len(client_plans[0]["items"][0]["catalog_alternatives"]), 2)
+        self.assertEqual(
+            {alternative["name"] for alternative in client_plans[0]["items"][0]["catalog_alternatives"]},
+            {"Hack squat", "Sentadilla goblet"},
+        )
 
     def test_client_can_track_assigned_training_item(self):
         professional = self.register("track-training-pro@example.com", "professional", "Coach")
@@ -657,6 +707,16 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(diet["calories_kcal"], 216)
         self.assertEqual(diet["protein_g"], 14.4)
 
+        summary_response = self.client.get(
+            f"/api/users/clients/{client_session['user']['id']}/summary",
+            headers=self.auth_header(professional),
+        )
+        self.assertEqual(summary_response.status_code, 200)
+        nutrition_summary = summary_response.get_json()["nutrition_summary"]
+        self.assertEqual(nutrition_summary["average_adherence_percentage"], 50)
+        self.assertEqual(nutrition_summary["latest_adherence_percentage"], 50)
+        self.assertEqual(nutrition_summary["entries_count"], 1)
+
     def test_nutrition_search_uses_spanish_results_and_normalizes_names(self):
         client_session = self.register("nutrition-search@example.com", "client", "Nutrition Search")
         payload = {
@@ -760,6 +820,24 @@ class ApiTestCase(unittest.TestCase):
         self.assertGreater(len(suggestions[0]["items"]), 0)
         self.assertIn("product", suggestions[0]["items"][0])
         self.assertIn("nutrition", suggestions[0]["items"][0]["product"])
+
+        more_response = self.client.post(
+            "/api/nutrition/suggestions",
+            json={
+                "offset": 3,
+                "meal_type": "Desayuno",
+                "target_calories_kcal": 420,
+                "target_protein_g": 30,
+                "target_carbs_g": 45,
+                "target_fat_g": 12,
+            },
+            headers=self.auth_header(client_session),
+        )
+
+        self.assertEqual(more_response.status_code, 200)
+        more_suggestions = more_response.get_json()["suggestions"]
+        self.assertEqual(len(more_suggestions), 3)
+        self.assertNotEqual(suggestions[0]["title"], more_suggestions[0]["title"])
 
     def test_nutrition_search_accumulates_unique_fallback_results(self):
         client_session = self.register("nutrition-search-fallback@example.com", "client", "Nutrition Search")

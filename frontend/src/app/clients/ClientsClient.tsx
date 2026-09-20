@@ -73,6 +73,11 @@ type ClientProfile = {
   progress: ProgressEntry[];
   workouts: WorkoutEntry[];
   diet: DietEntry[];
+  nutrition_summary: {
+    average_adherence_percentage: number | null;
+    latest_adherence_percentage: number | null;
+    entries_count: number;
+  };
   sessions: Session[];
 };
 
@@ -315,6 +320,7 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
   const [currentTime] = useState(() => Date.now());
   const activePlans = profile?.plans.filter((plan) => plan.status === "active") ?? [];
   const latestDiet = profile?.diet[0];
+  const nutritionSummary = profile?.nutrition_summary;
   const latestWorkout = profile?.workouts[0];
   const latestProgress = profile?.progress[0];
   const nextSession = profile?.sessions
@@ -345,7 +351,11 @@ function ClientProfilePanel({ client, profile, isLoading, onClose }: { client: A
       {!isLoading && profile ? (
         <div className="mt-5 grid gap-4 lg:grid-cols-4">
           <ProfileMetric label="Planes activos" value={String(activePlans.length)} detail={`${profile.plans.length} planes totales`} />
-          <ProfileMetric label="Dieta" value={latestDiet ? `${latestDiet.adherence_percentage}%` : "-"} detail={latestDiet ? `${latestDiet.meals_completed ?? "-"} / ${latestDiet.total_meals ?? "-"} comidas` : "Sin registros"} />
+          <ProfileMetric
+            label="Adherencia nutricional"
+            value={nutritionSummary?.average_adherence_percentage != null ? `${nutritionSummary.average_adherence_percentage}%` : "-"}
+            detail={nutritionSummary?.entries_count ? `${nutritionSummary.entries_count} registros · ultimo ${nutritionSummary.latest_adherence_percentage}%` : "Sin registros"}
+          />
           <ProfileMetric label="Entrenamiento" value={latestWorkout ? latestWorkout.title : "-"} detail={latestWorkout ? `${latestWorkout.sets_completed ?? "-"} series - ${latestWorkout.reps_completed ?? "-"} reps` : "Sin registros"} />
           <ProfileMetric label="Próxima sesión" value={nextSession ? nextSession.title : "-"} detail={nextSession ? new Date(nextSession.scheduled_at).toLocaleString("es-ES") : "Sin sesiones"} />
         </div>
